@@ -23,7 +23,7 @@ class AIServiceSQLite:
         if not provider:
             yield {"error": "No active AI provider configured"}
             return
-
+        
         try:
             config = provider.config
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -62,39 +62,38 @@ class AIServiceSQLite:
                             
                             try:
                                 chunk_data = json.loads(data)
+                                
                                 if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
                                     choice = chunk_data["choices"][0]
-                                    if "delta" in choice and "content" in choice["delta"]:
-                                        content = choice["delta"]["content"]
-                                        
-                                        # Skip if content is None
-                                        if content is None:
-                                            continue
-                                            
-                                        # Check for thinking tags in reasoning models
-                                        if "<think>" in content or "</think>" in content:
-                                            # Extract thinking content
-                                            thinking_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
-                                            if thinking_match:
-                                                thinking = thinking_match.group(1)
-                                                # Remove thinking tags from main content
-                                                content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-                                                yield {"type": "content", "content": content, "thinking": thinking}
-                                            else:
-                                                # Partial thinking content
-                                                if "<think>" in content:
-                                                    thinking = content.split("<think>", 1)[1]
-                                                    content = content.split("<think>", 1)[0]
-                                                    yield {"type": "content", "content": content, "thinking": thinking}
-                                                elif "</think>" in content:
-                                                    thinking = content.split("</think>", 1)[0]
-                                                    content = content.split("</think>", 1)[1]
-                                                    yield {"type": "content", "content": content, "thinking": thinking}
-                                                else:
-                                                    # Content is entirely thinking
-                                                    yield {"type": "content", "content": "", "thinking": content}
-                                        else:
-                                            yield {"type": "content", "content": content}
+                                    delta = choice.get("delta", {})
+                                    
+                                    # Regular content
+                                    content = delta.get("content", "")
+                                    # Reasoning content for DeepSeek reasoning models
+                                    reasoning_content = delta.get("reasoning_content", "")
+                                    
+                                    chunk_thinking = None
+                                    
+                                    # Handle DeepSeek reasoning content
+                                    if reasoning_content:
+                                        chunk_thinking = reasoning_content
+                                    
+                                    # Handle <think> tags in content
+                                    if content:
+                                        thinking_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+                                        if thinking_match:
+                                            thinking_text = thinking_match.group(1)
+                                            chunk_thinking = thinking_text
+                                            # Remove <think> tags from main content
+                                            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+                                    
+                                    # Send content and/or thinking if we have any
+                                    if content or chunk_thinking:
+                                        yield {
+                                            "type": "content", 
+                                            "content": content or "",
+                                            "thinking": chunk_thinking
+                                        }
                                             
                             except json.JSONDecodeError:
                                 # Skip malformed JSON chunks

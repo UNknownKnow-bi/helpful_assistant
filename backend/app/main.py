@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database.sqlite_connection import connect_to_database, disconnect_from_database
-from app.api import auth_sqlite, tasks, chat, ai_providers, ai_providers_sqlite, chat_sqlite
+from app.api import auth_sqlite, ai_providers_sqlite, chat_sqlite
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

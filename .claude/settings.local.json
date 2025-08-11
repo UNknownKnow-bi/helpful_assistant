@@ -6,7 +6,8 @@
       "Bash(source:*)",
       "Bash(pip install:*)",
       "Bash(npm run dev:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }

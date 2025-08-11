@@ -79,6 +79,7 @@ export default function Chat() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
+      console.log('WebSocket received:', data)
       
       if (data.type === 'content') {
         setMessages(prev => {
@@ -92,7 +93,7 @@ export default function Chat() {
                 content: lastMessage.content + (data.content || ''),
                 thinking: data.thinking ? 
                   (lastMessage.thinking || '') + data.thinking : 
-                  lastMessage.thinking
+                  lastMessage.thinking || null
               }
             ]
           } else {
@@ -239,7 +240,7 @@ export default function Chat() {
                     }`}
                   >
                     {/* Thinking Section */}
-                    {message.role === 'assistant' && message.thinking && (
+                    {message.role === 'assistant' && message.thinking && message.thinking.trim() && (
                       <div className="mb-3">
                         <button
                           onClick={() => toggleThinking(message.id)}
