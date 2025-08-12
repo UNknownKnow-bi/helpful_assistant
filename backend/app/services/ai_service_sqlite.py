@@ -102,20 +102,210 @@ class AIServiceSQLite:
         except Exception as e:
             yield {"error": f"AI service error: {str(e)}"}
 
-    async def generate_task_from_text(self, user_id: int, text: str, db: Session) -> Dict[str, Any]:
+    async def generate_task_from_text(self, user_id: int, text: str, db: Session) -> List[Dict[str, Any]]:
         """Generate structured task from text using AI"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         provider = self.get_active_provider(user_id, db)
         if not provider:
+            logger.warning(f"No active AI provider found for user {user_id}")
             raise ValueError("No active AI provider configured")
+        
+        logger.info(f"Found active provider: {provider.name} (ID: {provider.id}) for user {user_id}")
 
-        # Simple fallback task parsing for now
-        return {
-            "content": text,
-            "deadline": None,
-            "assignee": None,
-            "priority": "medium",
-            "difficulty": 5
+        # AI prompt for Chinese task extraction
+        system_prompt = """你是一个智能任务解析助手。请从用户输入的中文文本中提取任务信息，返回固定的JSON格式。
+
+规则：
+1. 只提取明确的任务信息，不确定的部分设为null
+2. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
+3. priority只能是: "low", "medium", "high"
+4. difficulty是1-10的数字，基于任务复杂度
+5. 如果没有明确时间信息，deadline设为null
+6. 如果没有指定负责人，assignee设为null
+7. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
+
+单任务返回格式：
+{
+  "content": "任务描述",
+  "deadline": "2024-01-15T09:00:00" 或 null,
+  "assignee": "负责人" 或 null,
+  "priority": "low|medium|high",
+  "difficulty": 1-10
+}
+
+多任务返回格式：
+[
+  {
+    "content": "任务1描述",
+    "deadline": "2024-01-15T09:00:00" 或 null,
+    "assignee": "负责人" 或 null,
+    "priority": "low|medium|high",
+    "difficulty": 1-10
+  },
+  {
+    "content": "任务2描述",
+    "deadline": "2024-01-16T14:00:00" 或 null,
+    "assignee": "负责人" 或 null,
+    "priority": "low|medium|high",
+    "difficulty": 1-10
+  }
+]"""
+
+        user_prompt = f"请从以下文本中提取任务信息：\n\n{text}"
+        
+        try:
+            config = provider.config
+            model = config.get("model", "gpt-3.5-turbo")
+            
+            # DeepSeek reasoning model may take longer, set 60s timeout
+            timeout = httpx.Timeout(60.0, read=60.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                # Base payload
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ]
+                }
+                
+                # DeepSeek reasoning model doesn't support temperature and other parameters
+                if "deepseek-reasoner" in model:
+                    payload["max_tokens"] = 2000  # Increase for JSON response
+                else:
+                    payload.update({
+                        "temperature": 0.3,  # Lower temperature for more consistent JSON output
+                        "max_tokens": 500
+                    })
+                
+                headers = {
+                    "Authorization": f"Bearer {config.get('api_key', '')}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = await client.post(
+                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
+                    json=payload,
+                    headers=headers
+                )
+                
+                if response.status_code != 200:
+                    error_text = response.text
+                    raise Exception(f"AI API error {response.status_code}: {error_text}")
+                
+                result = response.json()
+                message = result.get("choices", [{}])[0].get("message", {})
+                ai_response = message.get("content", "")
+                
+                # Log reasoning content for DeepSeek models (but use content for parsing)
+                if message.get("reasoning_content"):
+                    logger.info(f"DeepSeek reasoning: {message.get('reasoning_content')}")
+                
+                logger.info(f"AI response content: {ai_response}")
+                
+                # Try to parse JSON from AI response
+                try:
+                    # Extract JSON from response (handle markdown code blocks)
+                    import re
+                    
+                    # First try to extract from markdown code block (support both objects and arrays)
+                    markdown_match = re.search(r'```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```', ai_response, re.DOTALL)
+                    if markdown_match:
+                        json_str = markdown_match.group(1)
+                        logger.info(f"Extracted JSON from markdown: {json_str}")
+                    else:
+                        # Fallback to direct JSON extraction (support both objects and arrays)
+                        json_match = re.search(r'(\[.*?\]|\{.*?\})', ai_response, re.DOTALL)
+                        if json_match:
+                            json_str = json_match.group()
+                            logger.info(f"Extracted JSON directly: {json_str}")
+                        else:
+                            raise ValueError("No JSON found in response")
+                    
+                    task_data = json.loads(json_str)
+                    logger.info(f"Parsed task data: {task_data}")
+                    
+                    # Handle both single task and array of tasks
+                    if isinstance(task_data, list):
+                        logger.info(f"AI returned {len(task_data)} tasks")
+                        validated_tasks = []
+                        for single_task in task_data:
+                            validated_task = self._validate_single_task(single_task, text, logger)
+                            validated_tasks.append(validated_task)
+                        return validated_tasks
+                    else:
+                        # Single task
+                        logger.info("AI returned single task")
+                        validated_task = self._validate_single_task(task_data, text, logger)
+                        return [validated_task]  # Return as array for consistency
+                        
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"JSON parsing error: {e}, AI response: {ai_response}")
+                    # Fallback to simple parsing if AI response is invalid
+                    return [{
+                        "content": text,
+                        "deadline": None,
+                        "assignee": None,
+                        "priority": "medium",
+                        "difficulty": 5
+                    }]
+                    
+        except Exception as e:
+            import traceback
+            logger.error(f"AI service error: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            # Fallback to simple parsing if AI service fails
+            return [{
+                "content": text,
+                "deadline": None,
+                "assignee": None,
+                "priority": "medium",
+                "difficulty": 5
+            }]
+
+    def _validate_single_task(self, task_data: Dict[str, Any], original_text: str, logger) -> Dict[str, Any]:
+        """Validate and clean a single task data object"""
+        # Validate and clean the data
+        content = task_data.get("content")
+        if not content:
+            logger.warning(f"AI response missing 'content' field, using original text")
+            content = original_text
+        
+        # Handle difficulty field - can be null or number
+        difficulty_raw = task_data.get("difficulty", 5)
+        if difficulty_raw is None:
+            difficulty = 5  # Default value when null
+        else:
+            try:
+                difficulty = max(1, min(10, int(difficulty_raw)))
+            except (ValueError, TypeError):
+                difficulty = 5  # Default on conversion error
+        
+        validated_data = {
+            "content": content,
+            "deadline": task_data.get("deadline"),
+            "assignee": task_data.get("assignee"),
+            "priority": task_data.get("priority", "medium"),
+            "difficulty": difficulty
         }
+        
+        # Validate priority
+        if validated_data["priority"] not in ["low", "medium", "high"]:
+            validated_data["priority"] = "medium"
+        
+        # Parse deadline if it's a string
+        if validated_data["deadline"]:
+            try:
+                from datetime import datetime
+                if isinstance(validated_data["deadline"], str):
+                    validated_data["deadline"] = datetime.fromisoformat(validated_data["deadline"].replace('Z', '+00:00'))
+            except:
+                validated_data["deadline"] = None
+        
+        logger.info(f"Final validated task: {validated_data}")
+        return validated_data
 
     async def test_provider(self, provider: AIProvider) -> Dict[str, Any]:
         """Test AI provider connection using httpx"""
