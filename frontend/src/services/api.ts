@@ -61,9 +61,7 @@ export const authApi = {
 // Tasks API
 export const tasksApi = {
   generateFromText: async (text: string): Promise<Task> => {
-    const response = await api.post('/tasks/generate', null, {
-      params: { text }
-    })
+    const response = await api.post('/tasks/generate', { text })
     return response.data
   },
   
@@ -144,5 +142,27 @@ export const chatApi = {
   
   deleteSession: async (sessionId: number): Promise<void> => {
     await api.delete(`/chat/sessions/${sessionId}`)
+  },
+  
+  generateTitle: async (sessionId: number, firstMessage: string): Promise<{ title: string }> => {
+    const response = await api.post(`/chat/sessions/${sessionId}/generate-title`, { first_message: firstMessage })
+    return response.data
+  },
+  
+  renameSession: async (sessionId: number, title: string): Promise<{ title: string }> => {
+    const response = await api.put(`/chat/sessions/${sessionId}/title`, { title })
+    return response.data
+  },
+  
+  getSessionStatus: async (sessionId: number): Promise<{
+    session_id: number
+    has_streaming: boolean
+    has_interrupted: boolean
+    streaming_message?: { id: number; content: string; thinking?: string }
+    interrupted_message?: { id: number; content: string; thinking?: string }
+    updated_at: string
+  }> => {
+    const response = await api.get(`/chat/sessions/${sessionId}/status`)
+    return response.data
   },
 }

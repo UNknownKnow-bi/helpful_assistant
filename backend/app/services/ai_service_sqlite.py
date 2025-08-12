@@ -343,4 +343,98 @@ class AIServiceSQLite:
                 "message": f"Provider test failed: {str(e)}"
             }
 
+    async def generate_session_title(self, user_id: int, first_message: str, db: Session) -> str:
+        """Generate a short session title based on user's first message"""
+        provider = self.get_active_provider(user_id, db)
+        if not provider:
+            return "新对话"
+        
+        try:
+            config = provider.config
+            
+            # System prompt for title generation
+            system_prompt = """请根据用户的对话内容生成一个简短、贴切的中文会话标题，字数控制在10个字以内。
+            
+例如：
+- 如果用户说'帮我写一封感谢信'，标题可以是'感谢信草稿'
+- 如果用户说'解释一下Python的装饰器'，标题可以是'Python装饰器'
+- 如果用户说'今天天气怎么样'，标题可以是'天气查询'
+
+只返回标题文字，不要其他内容。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"用户消息是：{first_message}"}
+            ]
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:  # Increased timeout for reasoning models
+                # Use non-streaming request for title generation
+                payload = {
+                    "model": config.get("model", "gpt-3.5-turbo"),
+                    "messages": messages,
+                    "max_tokens": 3000,  # Fixed token limit for all models
+                    "temperature": 0.3,
+                    "stream": False  # Important: disable streaming for simple response
+                }
+                
+                response = await client.post(
+                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {config.get('api_key', '')}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                print(f"Title generation request payload: {payload}")
+                print(f"Title generation response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    response_data = response.json()
+                    print(f"Full response data: {response_data}")
+                    
+                    choice = response_data["choices"][0]
+                    message = choice["message"]
+                    finish_reason = choice.get("finish_reason")
+                    
+                    print(f"Message object: {message}")
+                    print(f"Finish reason: {finish_reason}")
+                    
+                    # Handle both regular and reasoning models
+                    title = ""
+                    
+                    # For both regular and reasoning models, the final answer is in 'content'
+                    # reasoning_content (if exists) is just the thinking process, not the answer
+                    if "content" in message and message["content"]:
+                        title = message["content"].strip()
+                        print(f"Found title in content: '{title}'")
+                    
+                    # If content is empty but we have reasoning_content, it means generation was truncated
+                    if not title and "reasoning_content" in message and message["reasoning_content"]:
+                        print(f"Content is empty but reasoning_content exists: '{message['reasoning_content']}'")
+                        print(f"This suggests the generation was truncated due to max_tokens limit")
+                        # Don't use reasoning_content as title - it's just thinking process
+                    
+                    # Remove <think> tags if present
+                    import re
+                    title = re.sub(r'<think>.*?</think>', '', title, flags=re.DOTALL).strip()
+                    
+                    # Clean up the title - remove quotes, ensure max length
+                    title = title.strip('"').strip("'").strip()
+                    if len(title) > 10:
+                        title = title[:10]
+                    
+                    print(f"Final cleaned title: '{title}'")
+                    return title if title else "新对话"
+                else:
+                    error_text = response.text
+                    print(f"API error: {response.status_code} - {error_text}")
+                    return "新对话"
+                    
+        except Exception as e:
+            import traceback
+            print(f"Title generation error: {e}")
+            print(f"Full traceback: {traceback.format_exc()}")
+            return "新对话"
+
 ai_service_sqlite = AIServiceSQLite()

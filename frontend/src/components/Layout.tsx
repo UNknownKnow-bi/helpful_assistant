@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
-import { MessageSquare, CheckSquare, Settings, LogOut } from 'lucide-react'
+import { MessageSquare, CheckSquare, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -12,10 +12,15 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useAuthStore()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed)
   }
 
   const navItems = [
@@ -52,7 +57,21 @@ export default function Layout({ children }: LayoutProps) {
 
       <div className="flex">
         {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-sm h-[calc(100vh-64px)]">
+        <nav className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white shadow-sm h-[calc(100vh-64px)] transition-all duration-300 relative`}>
+          {/* Toggle Button */}
+          <Button
+            onClick={toggleSidebar}
+            variant="ghost"
+            size="sm"
+            className="absolute -right-3 top-4 z-10 h-6 w-6 p-0 bg-white border border-gray-200 rounded-full shadow-sm hover:bg-gray-50"
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-3 w-3" />
+            ) : (
+              <ChevronLeft className="h-3 w-3" />
+            )}
+          </Button>
+
           <div className="p-4">
             <div className="space-y-2">
               {navItems.map(({ path, label, icon: Icon }) => {
@@ -65,10 +84,11 @@ export default function Layout({ children }: LayoutProps) {
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
+                    } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                    title={sidebarCollapsed ? label : ''}
                   >
-                    <Icon className="mr-3 h-4 w-4" />
-                    {label}
+                    <Icon className={`h-4 w-4 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+                    {!sidebarCollapsed && label}
                   </Link>
                 )
               })}
@@ -77,7 +97,7 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* Main content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 transition-all duration-300">
           {children}
         </main>
       </div>

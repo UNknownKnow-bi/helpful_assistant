@@ -77,6 +77,7 @@ class ChatMessage(Base):
     thinking = Column(Text, nullable=True)  # For reasoning models
     timestamp = Column(DateTime, default=datetime.utcnow)
     token_usage = Column(JSON, nullable=True)
+    streaming_status = Column(String(20), default="completed")  # "streaming", "completed", "interrupted"
 
     # Relationships
     session = relationship("ChatSession", back_populates="messages")

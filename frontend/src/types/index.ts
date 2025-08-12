@@ -66,6 +66,7 @@ export interface ChatMessage {
   thinking?: string
   timestamp: string
   token_usage?: Record<string, any>
+  streaming_status?: 'streaming' | 'completed' | 'interrupted'
 }
 
 export interface LoginRequest {

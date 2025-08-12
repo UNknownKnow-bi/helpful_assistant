@@ -160,23 +160,145 @@ helpful-assistant/
 - Persistent chat sessions stored in SQLite database
 - Chat history storage and retrieval with full context
 - Real-time streaming with optimized WebSocket performance
+- **🆕 Background AI Response Persistence**: AI requests continue running in background even when WebSocket disconnects
+- **🆕 Page Navigation Continuity**: Users can switch pages during AI responses without losing content
+- **🆕 Intelligent Response Recovery**: Automatic detection and display of interrupted responses when returning to chat
 
 **API Endpoints:**
-- `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming
+- `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming with background task management
 - `POST /api/chat/sessions` - Create new chat session
 - `GET /api/chat/sessions` - List user's chat sessions
 - `GET /api/chat/sessions/{session_id}/messages` - Get chat history
 - `DELETE /api/chat/sessions/{session_id}` - Delete chat session
+- `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
+- `PUT /api/chat/sessions/{session_id}/title` - Manual session renaming
+- **🆕 `GET /api/chat/sessions/{session_id}/status`** - Check session streaming status and background tasks
 
-**Message Schema:**
+**Enhanced Message Schema:**
 ```json
 {
   "role": "user|assistant",
   "content": "string",
   "thinking": "string|null",
   "timestamp": "ISO datetime",
-  "token_usage": "object"
+  "token_usage": "object",
+  "streaming_status": "streaming|completed|interrupted"
 }
+```
+
+**Chat Session Management:**
+- `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
+- `PUT /api/chat/sessions/{session_id}/title` - Manual session renaming
+- Auto-title generation triggered on first user message with AI-powered naming (≤10 characters)
+- Right-click context menu for manual session renaming in frontend
+
+**🆕 Background Task Management (后台任务管理):**
+- **Persistent AI Responses**: AI API requests continue processing in background using `asyncio.create_task()`
+- **Real-time Content Saving**: Each response chunk immediately saved to SQLite database
+- **Connection Independence**: WebSocket disconnections don't interrupt AI processing
+- **Automatic Recovery**: Interrupted responses detected and displayed when users return
+- **Multi-Connection Support**: Multiple WebSocket connections can receive updates from same background task
+- **Status Tracking**: Three message states: `streaming` (in progress), `completed` (finished), `interrupted` (disconnected)
+- **Visual Indicators**: UI shows streaming status with animated indicators and interruption warnings
+
+**🔧 Technical Implementation:**
+```python
+# Backend: Background Chat Service (app/services/background_chat_service.py)
+class BackgroundChatService:
+    # Tracks running AI tasks per session
+    running_tasks: Dict[int, asyncio.Task] = {}
+    # Tracks active WebSocket connections per session
+    active_connections: Dict[int, Set] = {}
+    
+    async def start_background_chat():
+        # Creates background task that persists beyond WebSocket lifecycle
+        task = asyncio.create_task(self._background_chat_worker())
+        
+    async def _background_chat_worker():
+        # Processes AI responses and saves to SQLite in real-time
+        # Broadcasts to all active connections via WebSocket
+        # Continues running even when connections disconnect
+```
+
+```sql
+-- Database: Added streaming_status field to chat_messages table
+ALTER TABLE chat_messages ADD COLUMN streaming_status TEXT DEFAULT 'completed';
+-- Values: 'streaming', 'completed', 'interrupted'
+```
+
+```typescript
+// Frontend: Enhanced message handling with status awareness
+interface ChatMessage {
+  streaming_status?: 'streaming' | 'completed' | 'interrupted'
+}
+
+// Automatic refresh of messages when background tasks complete
+const { data: sessionStatus } = useQuery({
+  refetchInterval: 2000, // Check for background task completion
+})
+```
+
+### 3.1. AI Response Processing (AI响应处理)
+
+**Functionality:**
+The system handles both regular AI models and reasoning models (DeepSeek-R1) with different response formats:
+
+**Regular Models Response Format:**
+```json
+{
+  "choices": [{
+    "message": {
+      "role": "assistant",
+      "content": "Final answer content"
+    },
+    "finish_reason": "stop"
+  }]
+}
+```
+
+**Reasoning Models (DeepSeek-R1) Response Format:**
+```json
+{
+  "choices": [{
+    "message": {
+      "role": "assistant",
+      "content": "Final answer content",
+      "reasoning_content": "Step-by-step thinking process"
+    },
+    "finish_reason": "stop"
+  }]
+}
+```
+
+**Implementation Guidelines:**
+
+1. **Streaming Chat (WebSocket)**:
+   - `content` field contains the final answer for both model types
+   - `reasoning_content` contains thinking process for reasoning models only
+   - Display `reasoning_content` in collapsible "思考过程" blocks in frontend
+   - Never include `reasoning_content` in conversation history context
+
+2. **Non-Streaming Requests (Title Generation)**:
+   - Use `content` field for final answer (both model types)
+   - Ignore `reasoning_content` for title generation (thinking ≠ answer)
+   - Set `max_tokens: 3000` to allow full reasoning process completion
+   - Set `timeout: 60.0` seconds for reasoning model processing time
+   - Ensure `stream: false` for simple response parsing
+
+3. **Error Handling**:
+   - Monitor `finish_reason` for token limit issues ("length" vs "stop")
+   - Implement proper timeout handling for reasoning models
+   - Graceful fallback to default values when AI generation fails
+
+**Code Example:**
+```python
+# Correct parsing for both model types
+message = response_data["choices"][0]["message"]
+final_answer = message.get("content", "").strip()  # Always use content
+thinking_process = message.get("reasoning_content", "")  # Optional reasoning
+
+# For title generation - only use content, never reasoning_content
+title = final_answer.strip('"').strip("'").strip()
 ```
 
 ### 4. User Personality Learning (用户个性学习)
@@ -298,6 +420,12 @@ class UserProfile(BaseModel):
    - SQLite-backed persistent chat sessions and message history
    - Integrated AI provider selection and configuration
    - Support for markdown rendering and thinking blocks display
+   - **AI-powered session title generation** with automatic naming from first message
+   - **Manual session renaming** with right-click context menu interface
+   - **Multi-model AI response handling** supporting both regular and reasoning models
+   - **🆕 Background AI Task Management** with `asyncio.create_task()` for persistent responses
+   - **🆕 Page Navigation Resilience** - AI responses continue when users switch pages
+   - **🆕 Intelligent Response Recovery** - Automatic detection and restoration of interrupted chats
 
 4. **Complete Task Management System Implementation**
    - AI-powered task extraction from Chinese text with multi-task support
@@ -419,3 +547,5 @@ All core foundation components are operational with:
 - Real-time AI chat with thinking process visualization
 - Complete task management dashboard with filtering and search
 - Seamless integration between AI services and task management
+- to memorize
+- to
