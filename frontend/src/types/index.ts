@@ -93,3 +93,83 @@ export interface AuthResponse {
   token_type: string
   message: string
 }
+
+// User Profile Types
+export interface WorkRelationship {
+  id: number
+  coworker_name: string
+  relationship_type: '下属' | '同级' | '上级' | '团队负责人' | '公司老板'
+  created_at: string
+}
+
+export interface WorkRelationshipCreate {
+  coworker_name: string
+  relationship_type: '下属' | '同级' | '上级' | '团队负责人' | '公司老板'
+}
+
+export interface WorkRelationshipUpdate {
+  coworker_name?: string
+  relationship_type?: '下属' | '同级' | '上级' | '团队负责人' | '公司老板'
+}
+
+export interface BigFivePersonality {
+  openness: string[]        // 经验开放性
+  conscientiousness: string[] // 尽责性
+  extraversion: string[]     // 外向性
+  agreeableness: string[]    // 宜人性
+  neuroticism: string[]      // 神经质
+}
+
+export interface UserProfile {
+  id: number
+  user_id: number
+  
+  // Basic Info
+  name?: string
+  work_nickname?: string
+  gender?: '男' | '女' | '无性别' | '其他性别'
+  job_type?: string
+  job_level?: '实习' | '初级' | '中级' | '高级'
+  is_manager?: boolean
+  
+  // Big Five Personality
+  personality_openness?: string[]
+  personality_conscientiousness?: string[]
+  personality_extraversion?: string[]
+  personality_agreeableness?: string[]
+  personality_neuroticism?: string[]
+  
+  created_at: string
+  updated_at: string
+  work_relationships: WorkRelationship[]
+}
+
+export interface UserProfileCreate {
+  name?: string
+  work_nickname?: string
+  gender?: '男' | '女' | '无性别' | '其他性别'
+  job_type?: string
+  job_level?: '实习' | '初级' | '中级' | '高级'
+  is_manager?: boolean
+  
+  personality_openness?: string[]
+  personality_conscientiousness?: string[]
+  personality_extraversion?: string[]
+  personality_agreeableness?: string[]
+  personality_neuroticism?: string[]
+}
+
+export interface UserProfileUpdate extends UserProfileCreate {}
+
+export interface UserProfileSummary {
+  basic_info: {
+    name?: string
+    work_nickname?: string
+    gender?: '男' | '女' | '无性别' | '其他性别'
+    job_type?: string
+    job_level?: '实习' | '初级' | '中级' | '高级'
+    is_manager?: boolean
+  }
+  big_five_personality: BigFivePersonality
+  work_relationships: WorkRelationship[]
+}

@@ -10,7 +10,14 @@ import type {
   ChatMessage,
   LoginRequest, 
   RegisterRequest, 
-  AuthResponse 
+  AuthResponse,
+  UserProfile,
+  UserProfileCreate,
+  UserProfileUpdate,
+  UserProfileSummary,
+  WorkRelationship,
+  WorkRelationshipCreate,
+  WorkRelationshipUpdate
 } from '@/types'
 
 const API_BASE_URL = '/api'
@@ -173,5 +180,55 @@ export const chatApi = {
   stopChatStream: async (sessionId: number): Promise<{ message: string }> => {
     const response = await api.post(`/chat/sessions/${sessionId}/stop`)
     return response.data
+  },
+}
+
+// User Profile API
+export const userProfileApi = {
+  get: async (): Promise<UserProfile> => {
+    const response = await api.get('/profile')
+    return response.data
+  },
+  
+  createOrUpdate: async (data: UserProfileCreate): Promise<UserProfile> => {
+    const response = await api.post('/profile', data)
+    return response.data
+  },
+  
+  update: async (data: UserProfileUpdate): Promise<UserProfile> => {
+    const response = await api.put('/profile', data)
+    return response.data
+  },
+  
+  getSummary: async (): Promise<UserProfileSummary> => {
+    const response = await api.get('/profile/summary')
+    return response.data
+  },
+  
+  updatePersonalityDimension: async (dimension: string, tags: string[]): Promise<UserProfile> => {
+    const response = await api.put(`/profile/personality/${dimension}`, tags)
+    return response.data
+  },
+}
+
+// Work Relationships API
+export const workRelationshipsApi = {
+  getAll: async (): Promise<WorkRelationship[]> => {
+    const response = await api.get('/profile/relationships')
+    return response.data
+  },
+  
+  create: async (data: WorkRelationshipCreate): Promise<WorkRelationship> => {
+    const response = await api.post('/profile/relationships', data)
+    return response.data
+  },
+  
+  update: async (id: number, data: WorkRelationshipUpdate): Promise<WorkRelationship> => {
+    const response = await api.put(`/profile/relationships/${id}`, data)
+    return response.data
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/profile/relationships/${id}`)
   },
 }

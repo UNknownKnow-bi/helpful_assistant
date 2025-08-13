@@ -52,11 +52,18 @@ helpful-assistant/
 ├── frontend/                      # React SPA
 │   ├── src/
 │   │   ├── components/           # Reusable UI components
-│   │   │   └── ui/               # shadcn/ui components
+│   │   │   ├── BasicInfoForm.tsx    # User basic information form
+│   │   │   ├── BigFivePersonality.tsx # Big Five personality tag management
+│   │   │   ├── WorkRelationshipCards.tsx # Work relationship card interface
+│   │   │   ├── TaskCard.tsx         # Task display component
+│   │   │   ├── TaskGenerationForm.tsx # Task generation interface
+│   │   │   ├── Layout.tsx           # Main application layout
+│   │   │   └── ui/                  # shadcn/ui components
 │   │   ├── pages/               # Page components
 │   │   │   ├── Dashboard.tsx     # Main dashboard
 │   │   │   ├── Chat.tsx         # Real-time chat interface
 │   │   │   ├── AIConfig.tsx     # AI provider configuration
+│   │   │   ├── Profile.tsx      # User profile management
 │   │   │   ├── Login.tsx        # User authentication
 │   │   │   └── Register.tsx     # User registration
 │   │   ├── hooks/               # Custom React hooks
@@ -69,7 +76,9 @@ helpful-assistant/
 │   │   ├── api/                 # SQLite-based API routes
 │   │   │   ├── auth_sqlite.py    # User authentication
 │   │   │   ├── ai_providers_sqlite.py # AI provider management
-│   │   │   └── chat_sqlite.py    # Real-time chat with WebSocket
+│   │   │   ├── chat_sqlite.py    # Real-time chat with WebSocket
+│   │   │   ├── task_sqlite.py    # Task management with Eisenhower Matrix
+│   │   │   └── user_profile_sqlite.py # User profile and relationship management
 │   │   ├── core/                # Core configurations
 │   │   │   ├── auth_sqlite.py    # Authentication logic
 │   │   │   ├── config.py        # Settings and configuration
@@ -93,12 +102,9 @@ helpful-assistant/
 **Functionality:**
 - Accept Chinese text input from users
 - Use AI to parse and extract task information using **Eisenhower Matrix** evaluation
-- Generate structured task cards with enhanced JSON schema
-- Support both **single task** and **multi-task array** generation from complex text
-- **Enhanced task properties**: title, content separation, urgency/importance matrix, participant tracking
+- Generate structured task cards with enhanced JSON schema(single or multi-task)
+- Enhanced task properties: title, content separation, urgency/importance matrix, participant tracking
 - Controlled by specific prompts to ensure consistent JSON output format
-- **Smart JSON parsing** with comment cleanup and error recovery
-- **User configuration respect** for AI parameters (temperature, max_tokens, etc.)
 
 **API Endpoints:**
 - `POST /api/tasks/generate` - Generate task card(s) from text (supports multi-task)
@@ -108,7 +114,7 @@ helpful-assistant/
 - `PUT /api/tasks/{task_id}` - Update task information
 - `DELETE /api/tasks/{task_id}` - Delete task
 
-**Enhanced JSON Schema (Eisenhower Matrix):**
+**JSON Schema:**
 ```json
 {
   "title": "string (max 8 chars)",           // Brief bold summary
@@ -134,15 +140,11 @@ helpful-assistant/
 
 **Functionality:**
 - Support multiple AI providers: DeepSeek, OpenAI-compatible APIs
-- User-friendly configuration interface for API keys and endpoints
 - **Full parameter configuration**: temperature, max_tokens, top_p, frequency_penalty, presence_penalty
 - Built-in testing functionality with simple "OK" response or ping tests
 - Persistent configuration storage in SQLite database with auto-loading
 - HTTPx-based direct AI provider integration for better performance
-- DeepSeek reasoning model support with real-time thinking visualization
 - **Complete CRUD Operations**: Create, read, update, and delete AI provider configurations
-- **Edit Configuration**: Modify existing provider settings including API keys, models, and parameters
-- **Delete Configuration**: Remove AI providers with automatic active provider cleanup
 - **Parameter Validation**: Automatic max_tokens capping (≤8192) and parameter validation
 - **Extended Timeouts**: 5-minute timeout support for reasoning models
 
@@ -150,7 +152,7 @@ helpful-assistant/
 - `POST /api/ai-providers` - Add new AI provider configuration
 - `GET /api/ai-providers` - List configured providers
 - `PUT /api/ai-providers/{provider_id}` - Update provider config
-- **🆕 `DELETE /api/ai-providers/{provider_id}`** - Delete AI provider configuration
+- `DELETE /api/ai-providers/{provider_id}` - Delete AI provider configuration
 - `POST /api/ai-providers/{provider_id}/test` - Test provider connection
 - `GET /api/ai-providers/active` - Get active provider configuration
 
@@ -176,14 +178,11 @@ helpful-assistant/
 - **Model-Specific Support**: DeepSeek reasoning models automatically exclude unsupported parameters
 - **Validation & Safety**: Automatic parameter validation and API limit compliance
 
-
 ### 3. AI Chat Interface (AI问答界面)
 
 **Functionality:**
 - Independent chat interface as a separate page/module
-- Real-time streaming responses using WebSockets
 - Full markdown support for rich text formatting
-- DeepSeek reasoning model support with `reasoning_content` field
 - Real-time thinking process visualization in collapsible UI blocks
 - Support for both `<think>` tags and native reasoning content
 - Persistent chat sessions stored in SQLite database
@@ -205,7 +204,7 @@ helpful-assistant/
 - **🆕 `GET /api/chat/sessions/{session_id}/status`** - Check session streaming status and background tasks
 - **🆕 `POST /api/chat/sessions/{session_id}/stop`** - Manually stop ongoing AI streaming responses
 
-**Enhanced Message Schema:**
+**Message Schema:**
 ```json
 {
   "role": "user|assistant",
@@ -283,9 +282,6 @@ class BackgroundChatService:
 
 ### 3.1. AI Response Processing (AI响应处理)
 
-**Functionality:**
-The system handles both regular AI models and reasoning models (DeepSeek-R1) with different response formats:
-
 **Regular Models Response Format:**
 ```json
 {
@@ -324,14 +320,7 @@ The system handles both regular AI models and reasoning models (DeepSeek-R1) wit
 2. **Non-Streaming Requests (Title Generation)**:
    - Use `content` field for final answer (both model types)
    - Ignore `reasoning_content` for title generation (thinking ≠ answer)
-   - Set `max_tokens: 3000` to allow full reasoning process completion
-   - Set `timeout: 60.0` seconds for reasoning model processing time
    - Ensure `stream: false` for simple response parsing
-
-3. **Error Handling**:
-   - Monitor `finish_reason` for token limit issues ("length" vs "stop")
-   - Implement proper timeout handling for reasoning models
-   - Graceful fallback to default values when AI generation fails
 
 **Code Example:**
 ```python
@@ -344,42 +333,91 @@ thinking_process = message.get("reasoning_content", "")  # Optional reasoning
 title = final_answer.strip('"').strip("'").strip()
 ```
 
-### 4. User Personality Learning (用户个性学习)
+### 4. User Profile Management System (用户个人资料管理系统)
 
-**Functionality:**
-- Psychology-based questionnaire system for work habit assessment
-- User profiling including: personality type, work style, collaboration preferences
-- Work type classification (Development, Product, Operations, etc.)
-- Team dynamics assessment (colleague personalities and interaction patterns)
-- Task difficulty evaluation based on user profile and context
-- Knowledge base storage of user insights and AI analysis
-- Continuous learning from user interactions and feedback
+**✅ FULLY IMPLEMENTED** - Complete user profiling system with Big Five personality model and work relationship management.
 
-**Components:**
-- **Questionnaire Engine**: Configurable psychology assessment forms
-- **Profile Analysis**: AI-powered analysis of questionnaire results
-- **Knowledge Base**: Structured storage of user characteristics and insights
-- **Task Difficulty Estimator**: Context-aware task complexity evaluation
+**Core Functionality:**
+- **Basic Information Management**: Name, work nickname, gender-inclusive options, job type/level, management role
+- **Big Five Personality Model**: Interactive tag-based personality assessment with 5 psychological dimensions
+- **Work Relationship Management**: Dynamic colleague relationship tracking with hierarchical roles
+- **Profile Summary**: Structured overview of user characteristics for AI personalization
+- **Real-time Updates**: Immediate database persistence with optimistic UI updates
+
+**Big Five Personality Dimensions (大五人格模型):**
+1. **经验开放性 (Openness)**: 对新事物、新想法的好奇心和想象力
+2. **尽责性 (Conscientiousness)**: 自律、有条理、可靠的程度 (最可靠的工作绩效指标)
+3. **外向性 (Extraversion)**: 从社交中获取能量的程度，热情、健谈
+4. **宜人性 (Agreeableness)**: 对他人友好、合作、有同情心的程度
+5. **神经质 (Neuroticism)**: 情绪的稳定性，感受负面情绪的倾向
+
+**Work Relationship Types:**
+- **下属** (Subordinate): Direct reports
+- **同级** (Peer): Colleagues at same level
+- **上级** (Superior): Direct manager/supervisor
+- **团队负责人** (Team Leader): Team lead or project manager
+- **公司老板** (Company Boss): Executive leadership
 
 **API Endpoints:**
-- `POST /api/profile/questionnaire` - Submit questionnaire responses
-- `GET /api/profile/questionnaire/templates` - Available questionnaire templates
-- `GET /api/profile/analysis` - Get user personality analysis
-- `PUT /api/profile/work-context` - Update work environment information
-- `POST /api/profile/task-difficulty` - Estimate task difficulty for user
+
+*User Profile Management:*
+- `GET /api/profile` - Get current user's profile
+- `POST /api/profile` - Create or update user profile
+- `PUT /api/profile` - Update user profile
+- `GET /api/profile/summary` - Get structured profile summary
+- `PUT /api/profile/personality/{dimension}` - Update specific Big Five dimension tags
+
+*Work Relationship Management:*
+- `GET /api/profile/relationships` - Get all work relationships
+- `POST /api/profile/relationships` - Create new work relationship
+- `PUT /api/profile/relationships/{id}` - Update work relationship
+- `DELETE /api/profile/relationships/{id}` - Delete work relationship
 
 **Profile Schema:**
 ```json
 {
-  "personality_type": "string",
-  "work_style": "object",
-  "collaboration_preferences": "array",
-  "work_type": "development|product|operations|management",
-  "team_context": "object",
-  "difficulty_factors": "object",
-  "learning_insights": "array"
+  "id": "int",
+  "user_id": "int",
+  
+  // Basic Information
+  "name": "string (optional)",
+  "work_nickname": "string (optional)", 
+  "gender": "男|女|无性别|其他性别 (inclusive options)",
+  "job_type": "string (free text: '产品运营', '数据分析师')",
+  "job_level": "实习|初级|中级|高级",
+  "is_manager": "boolean",
+  
+  // Big Five Personality (tag arrays for each dimension)
+  "personality_openness": "string[] (经验开放性 tags)",
+  "personality_conscientiousness": "string[] (尽责性 tags)",
+  "personality_extraversion": "string[] (外向性 tags)", 
+  "personality_agreeableness": "string[] (宜人性 tags)",
+  "personality_neuroticism": "string[] (神经质 tags)",
+  
+  // Relationships
+  "work_relationships": "WorkRelationship[]",
+  
+  "created_at": "datetime",
+  "updated_at": "datetime"
 }
 ```
+**Work Relationship Schema:**
+```json
+{
+  "id": "int",
+  "user_profile_id": "int (foreign key)",
+  "coworker_name": "string",
+  "relationship_type": "下属|同级|上级|团队负责人|公司老板",
+  "created_at": "datetime"
+}
+```
+
+**Frontend Components:**
+- **Profile Page** (`/profile`): Tabbed interface with Basic Info, Personality, and Relationships
+- **BasicInfoForm**: Gender-inclusive form with job classification
+- **BigFivePersonality**: Interactive tag management system with color-coded dimensions
+- **WorkRelationshipCards**: Dynamic card-based colleague management with statistics
+
 ## Data Models
 
 ### Users
@@ -424,88 +462,50 @@ class AIProvider(BaseModel):
     last_tested: datetime | None
 ```
 
-### User Profiles
+### User Profiles (Enhanced with Big Five Personality Model)
 ```python
 class UserProfile(BaseModel):
     id: int
     user_id: int
-    personality_assessment: Dict[str, Any]
-    work_context: Dict[str, Any]
-    ai_analysis: str
-    knowledge_base: List[Dict[str, Any]]
+    
+    # Basic Information
+    name: str | None = None
+    work_nickname: str | None = None
+    gender: str | None = None  # 男|女|无性别|其他性别
+    job_type: str | None = None  # Free text like '产品运营', '数据分析师'
+    job_level: str | None = None  # 实习|初级|中级|高级
+    is_manager: bool = False
+    
+    # Big Five Personality Model (tag arrays)
+    personality_openness: List[str] = []          # 经验开放性 tags
+    personality_conscientiousness: List[str] = [] # 尽责性 tags
+    personality_extraversion: List[str] = []      # 外向性 tags
+    personality_agreeableness: List[str] = []     # 宜人性 tags
+    personality_neuroticism: List[str] = []       # 神经质 tags
+    
+    # Work Relationships
+    work_relationships: List[WorkRelationship] = []
+    
+    # Legacy fields (for backward compatibility)
+    personality_assessment: Dict[str, Any] | None = None
+    work_context: Dict[str, Any] | None = None
+    ai_analysis: str | None = None
+    knowledge_base: List[Dict[str, Any]] | None = None
+    
+    created_at: datetime
     updated_at: datetime
+
+class WorkRelationship(BaseModel):
+    id: int
+    user_profile_id: int
+    coworker_name: str                  # Colleague's name
+    relationship_type: str              # 下属|同级|上级|团队负责人|公司老板
+    created_at: datetime
 ```
 
 ## Implementation Status
 
 ### ✅ Latest Updates (January 2025)
-
-**🆕 Eisenhower Matrix Task Management System (January 13, 2025):**
-1. **Task Schema Enhancement**
-   - Added `title` field for 8-character bold task summaries
-   - Replaced `priority` with `urgency` and `importance` (Eisenhower Matrix)
-   - Added `participant` field (default: "你") alongside `assignee` (提出人)
-   - Enhanced multi-task generation from complex Chinese text input
-   - Database migration script with automatic data conversion
-
-2. **AI Service Improvements**
-   - **User Configuration Respect**: Fixed hardcoded parameters to use user's AI provider settings
-   - **Smart JSON Parsing**: Added JavaScript comment cleanup and error recovery
-   - **Extended Timeouts**: 5-minute timeout support for complex AI reasoning
-   - **Parameter Validation**: Automatic max_tokens capping at API limits (≤8192)
-   - **Model-Specific Handling**: DeepSeek reasoning model parameter optimization
-
-3. **Enhanced API Endpoints**
-   - `GET /api/tasks/stats` now returns Eisenhower Matrix distribution
-   - `GET /api/tasks?urgency=high&importance=high` filtering support
-   - Multi-task array generation from single text input
-   - Robust error handling with intelligent fallback mechanisms
-
-4. **Frontend Enhancements**
-   - **Bold title display** prominently above task content
-   - Separate urgency (green/red) and importance (blue/purple) badges
-   - Updated Chinese field labels (提出人, 参与人)
-   - Enhanced task generation hints with Eisenhower Matrix guidance
-
-**Complete SQLite Migration & Task Management Implementation:**
-1. **Database Migration from MongoDB to SQLite**
-   - Migrated all data models to SQLite using SQLAlchemy ORM
-   - Updated connection management with proper session handling
-   - Maintained data integrity during migration process
-
-2. **AI Service Architecture Overhaul**
-   - Replaced LangChain with direct HTTPx implementation for better control
-   - Improved streaming performance and error handling
-   - Added DeepSeek reasoning model support with `reasoning_content` field
-   - Enhanced provider configuration and testing with SQLite persistence
-   - Delete API Endpoint: `DELETE /api/ai-providers/{provider_id}` with smart active provider cleanup
-
-3. **Chat Interface Full Implementation**
-   - Complete WebSocket-based real-time chat functionality
-   - SQLite-backed persistent chat sessions and message history
-   - Integrated AI provider selection and configuration
-   - Support for markdown rendering and thinking blocks display
-   - **AI-powered session title generation** with automatic naming from first message
-   - **Manual session renaming** with right-click context menu interface
-   - **Multi-model AI response handling** supporting both regular and reasoning models
-   - **🆕 Background AI Task Management** with `asyncio.create_task()` for persistent responses
-   - **🆕 Page Navigation Resilience** - AI responses continue when users switch pages
-   - **🆕 Intelligent Response Recovery** - Automatic detection and restoration of interrupted chats
-
-4. **Complete Task Management System Implementation**
-   - AI-powered task extraction from Chinese text with multi-task support
-   - Advanced JSON parsing supporting both single tasks and task arrays
-   - Intelligent task parsing with deadline interpretation, assignee detection, priority inference
-   - Complete task CRUD operations with filtering and search
-   - Task card UI components with shadcn/ui integration
-   - Real-time task generation with immediate database persistence
-
-5. **API Route Architecture**
-   - Created separate SQLite-specific API modules (auth_sqlite, ai_providers_sqlite, chat_sqlite, task_sqlite)
-   - Proper dependency injection for database sessions
-   - Comprehensive error handling and validation
-   - Multi-task generation endpoint with batch processing
-   - **🆕 Complete AI Provider CRUD**: Added DELETE endpoint and enhanced frontend API service with `aiProvidersApi.delete()`
 
 
 ### 🔄 Current Architecture
@@ -528,25 +528,18 @@ All core foundation components are operational with:
 
 ## Next Priority Tasks
 
-**✅ Recently Completed (January 13, 2025):**
-- ✅ **Enhanced Task Schema**: Eisenhower Matrix implementation with title/content separation
-- ✅ **AI Service Optimization**: User configuration respect and parameter validation
-- ✅ **Multi-task Generation**: Complex text parsing with robust error handling
-- ✅ **Database Migration**: Complete schema update with backward compatibility
-
 **🔄 Current Focus:**
 
-1. **User Profiling System** (Next Priority)
-   - Design psychology-based questionnaire system for work style assessment
-   - Implement AI-powered user analysis based on questionnaire responses
-   - Create task difficulty estimation algorithm based on user profiles
-   - Add team dynamics assessment and collaboration preferences
-   - Integrate profiling results into task generation for personalized difficulty scoring
+1. **AI Integration with User Profiles** (Next Priority)
+   - Integrate user profile data into task generation prompts
+   - Personalized task difficulty estimation based on Big Five traits
+   - find out what is the most fit prompt to make ai answer with social sense
+   - Context-aware task assignment using work relationships
+   - Team dynamics consideration in task complexity assessment
 
 2. **Advanced Task Features** 
    - Task dependencies and subtask management
-   - Task templates and recurring task patterns
-   - Task performance analytics and completion tracking
+   - Task excution advice from AI with personalize information
    - Integration with calendar systems for deadline management
 
 3. **System Polish & Optimization**
@@ -554,3 +547,4 @@ All core foundation components are operational with:
    - Performance optimization for large-scale task management
    - Enhanced error handling and user feedback systems
    - Deployment preparation and production optimization
+- to memorize

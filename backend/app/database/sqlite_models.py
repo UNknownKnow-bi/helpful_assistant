@@ -90,11 +90,43 @@ class UserProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    
+    # Basic Info
+    name = Column(String(100), nullable=True)
+    work_nickname = Column(String(100), nullable=True)
+    gender = Column(String(20), nullable=True)  # 男|女|无性别|其他性别
+    job_type = Column(String(200), nullable=True)  # Free text like '产品运营', '数据分析师'
+    job_level = Column(String(20), nullable=True)  # 实习|初级|中级|高级
+    is_manager = Column(Boolean, default=False)
+    
+    # Big Five Personality (JSON arrays for tags)
+    personality_openness = Column(JSON, default=list)  # 经验开放性 tags
+    personality_conscientiousness = Column(JSON, default=list)  # 尽责性 tags
+    personality_extraversion = Column(JSON, default=list)  # 外向性 tags
+    personality_agreeableness = Column(JSON, default=list)  # 宜人性 tags
+    personality_neuroticism = Column(JSON, default=list)  # 神经质 tags
+    
+    # Legacy fields (keeping for backward compatibility)
     personality_assessment = Column(JSON, nullable=True)
     work_context = Column(JSON, nullable=True)
     ai_analysis = Column(Text, nullable=True)
     knowledge_base = Column(JSON, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     user = relationship("User")
+    work_relationships = relationship("WorkRelationship", back_populates="user_profile", cascade="all, delete-orphan")
+
+class WorkRelationship(Base):
+    __tablename__ = "work_relationships"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_profile_id = Column(Integer, ForeignKey("user_profiles.id"), nullable=False)
+    coworker_name = Column(String(100), nullable=False)
+    relationship_type = Column(String(50), nullable=False)  # 下属|同级|上级|团队负责人|公司老板
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user_profile = relationship("UserProfile", back_populates="work_relationships")

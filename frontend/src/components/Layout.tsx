@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
-import { MessageSquare, CheckSquare, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MessageSquare, CheckSquare, Settings, User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -27,6 +27,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/dashboard', label: '任务管理', icon: CheckSquare },
     { path: '/chat', label: 'AI问答', icon: MessageSquare },
     { path: '/ai-config', label: 'AI配置', icon: Settings },
+    { path: '/profile', label: '个人资料', icon: User },
   ]
 
   return (

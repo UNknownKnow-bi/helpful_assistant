@@ -8,6 +8,7 @@ import Register from '@/pages/Register'
 import Dashboard from '@/pages/Dashboard'
 import Chat from '@/pages/Chat'
 import AIConfig from '@/pages/AIConfig'
+import Profile from '@/pages/Profile'
 
 function App() {
   const { isAuthenticated, setUser, logout } = useAuthStore()
@@ -72,6 +73,18 @@ function App() {
           isAuthenticated ? (
             <Layout>
               <AIConfig />
+            </Layout>
+          ) : (
+            <Navigate to="/login" />
+          )
+        } 
+      />
+      <Route 
+        path="/profile" 
+        element={
+          isAuthenticated ? (
+            <Layout>
+              <Profile />
             </Layout>
           ) : (
             <Navigate to="/login" />
