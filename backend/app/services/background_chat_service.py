@@ -63,6 +63,87 @@ class BackgroundChatService:
         logger.info(f"Started background chat task for session {session_id}")
         return task
     
+    async def stop_session_task(self, session_id: int) -> bool:
+        """Stop running background task for a session"""
+        logger.info(f"Attempting to stop task for session {session_id}. Running tasks: {list(self.running_tasks.keys())}")
+        
+        if session_id in self.running_tasks:
+            task = self.running_tasks[session_id]
+            task.cancel()
+            logger.info(f"Cancelled background task for session {session_id}")
+            
+            # Update database to mark as interrupted
+            db = SessionLocal()
+            try:
+                # Find streaming message and mark as interrupted
+                streaming_msg = db.query(ChatMessage).filter(
+                    ChatMessage.session_id == session_id,
+                    ChatMessage.streaming_status == "streaming"
+                ).first()
+                
+                if streaming_msg:
+                    streaming_msg.streaming_status = "interrupted"
+                    db.commit()
+                    logger.info(f"Marked streaming message {streaming_msg.id} as interrupted for session {session_id}")
+                else:
+                    logger.info(f"No streaming message found to mark as interrupted for session {session_id}")
+                
+            except Exception as e:
+                logger.error(f"Error updating database for session {session_id}: {e}")
+                try:
+                    db.rollback()
+                except:
+                    pass
+            finally:
+                db.close()
+            
+            # Broadcast stop notification to connected clients
+            try:
+                await self.broadcast_to_session(session_id, {
+                    "type": "stopped",
+                    "content": "AI response stopped by user"
+                })
+                logger.info(f"Broadcasted stop notification for session {session_id}")
+            except Exception as e:
+                logger.error(f"Error broadcasting stop notification for session {session_id}: {e}")
+            
+            # Remove from running tasks
+            del self.running_tasks[session_id]
+            logger.info(f"Stopped background task for session {session_id}")
+            return True
+        else:
+            # Check if there's a streaming message in the database that we can mark as interrupted
+            db = SessionLocal()
+            try:
+                streaming_msg = db.query(ChatMessage).filter(
+                    ChatMessage.session_id == session_id,
+                    ChatMessage.streaming_status == "streaming"
+                ).first()
+                
+                if streaming_msg:
+                    logger.info(f"Found orphaned streaming message {streaming_msg.id} for session {session_id}, marking as interrupted")
+                    streaming_msg.streaming_status = "interrupted"
+                    db.commit()
+                    
+                    # Broadcast stop notification
+                    await self.broadcast_to_session(session_id, {
+                        "type": "stopped",
+                        "content": "AI response stopped by user"
+                    })
+                    
+                    return True
+            except Exception as e:
+                logger.error(f"Error checking for orphaned streaming message in session {session_id}: {e}")
+                try:
+                    db.rollback()
+                except:
+                    pass
+            finally:
+                db.close()
+        
+        logger.info(f"No active streaming found for session {session_id}")
+        return False
+
     async def _background_chat_worker(self, session_id: int, user_id: int, message_history: list, assistant_message_id: int):
         """Background worker that processes AI response and saves to database"""
         db = SessionLocal()
@@ -79,6 +160,15 @@ class BackgroundChatService:
             try:
                 # Stream AI response in background
                 async for chunk in ai_service_sqlite.chat_stream(user_id, message_history, db):
+                    # Check if task was cancelled
+                    if asyncio.current_task().cancelled():
+                        logger.info(f"Background task cancelled for session {session_id}")
+                        assistant_msg.streaming_status = "interrupted"
+                        assistant_msg.content = assistant_content
+                        assistant_msg.thinking = assistant_thinking if assistant_thinking else None
+                        db.commit()
+                        return
+                    
                     if "error" in chunk:
                         # Mark as interrupted on error
                         assistant_msg.streaming_status = "interrupted"
@@ -100,10 +190,24 @@ class BackgroundChatService:
                             assistant_thinking += thinking
                         
                         # Update database with current progress
-                        assistant_msg.content = assistant_content
-                        if assistant_thinking:
-                            assistant_msg.thinking = assistant_thinking
-                        db.commit()
+                        try:
+                            assistant_msg.content = assistant_content
+                            if assistant_thinking:
+                                assistant_msg.thinking = assistant_thinking
+                            db.commit()
+                        except Exception as commit_error:
+                            logger.error(f"Error updating content for session {session_id}: {commit_error}")
+                            try:
+                                db.rollback()
+                                # Retry with fresh session
+                                db.refresh(assistant_msg)
+                                assistant_msg.content = assistant_content
+                                if assistant_thinking:
+                                    assistant_msg.thinking = assistant_thinking
+                                db.commit()
+                            except:
+                                logger.error(f"Failed to retry content update for session {session_id}")
+                                pass
                         
                         # Broadcast to all connected clients
                         await self.broadcast_to_session(session_id, {
@@ -132,6 +236,15 @@ class BackgroundChatService:
                         })
                         break
                         
+            except asyncio.CancelledError:
+                logger.info(f"Background task cancelled for session {session_id}")
+                # Mark as interrupted when cancelled
+                assistant_msg.streaming_status = "interrupted"
+                assistant_msg.content = assistant_content
+                assistant_msg.thinking = assistant_thinking if assistant_thinking else None
+                db.commit()
+                raise
+                
             except Exception as stream_error:
                 logger.error(f"Background streaming error for session {session_id}: {stream_error}")
                 # Mark as interrupted on streaming error

@@ -92,49 +92,69 @@ helpful-assistant/
 
 **Functionality:**
 - Accept Chinese text input from users
-- Use AI to parse and extract task information
-- Generate structured task cards with predefined JSON schema
-- Support task properties: content, deadline (DDL), assignee, priority, difficulty
+- Use AI to parse and extract task information using **Eisenhower Matrix** evaluation
+- Generate structured task cards with enhanced JSON schema
+- Support both **single task** and **multi-task array** generation from complex text
+- **Enhanced task properties**: title, content separation, urgency/importance matrix, participant tracking
 - Controlled by specific prompts to ensure consistent JSON output format
+- **Smart JSON parsing** with comment cleanup and error recovery
+- **User configuration respect** for AI parameters (temperature, max_tokens, etc.)
 
 **API Endpoints:**
-- `POST /api/tasks/generate` - Generate task card from text
+- `POST /api/tasks/generate` - Generate task card(s) from text (supports multi-task)
+- `GET /api/tasks` - List tasks with Eisenhower Matrix filtering
+- `GET /api/tasks/stats` - Get task statistics with matrix distribution
 - `GET /api/tasks/{task_id}` - Retrieve specific task
 - `PUT /api/tasks/{task_id}` - Update task information
 - `DELETE /api/tasks/{task_id}` - Delete task
 
-**JSON Schema:**
+**Enhanced JSON Schema (Eisenhower Matrix):**
 ```json
 {
-  "content": "string",
+  "title": "string (max 8 chars)",           // Brief bold summary
+  "content": "string",                      // Detailed task description
   "deadline": "ISO datetime",
-  "assignee": "string", 
-  "priority": "low|medium|high",
+  "assignee": "string",                     // 提出人 (who assigned the task)
+  "participant": "string (default: '你')",   // 参与人 (who participates)
+  "urgency": "low|high",                    // 紧迫性 (time-sensitive)
+  "importance": "low|high",                 // 重要性 (goal contribution)
   "difficulty": "number (1-10)",
-  "source": "manual|extension",
+  "source": "manual|extension|ai_generated",
   "status": "pending|in_progress|completed"
 }
 ```
+
+**Eisenhower Matrix Categories:**
+- **Urgent + Important**: Do First (immediate action)
+- **Urgent + Not Important**: Schedule (time-sensitive but low impact)
+- **Not Urgent + Important**: Delegate (important for long-term goals)
+- **Not Urgent + Not Important**: Eliminate (low priority)
 
 ### 2. AI Service Configuration (AI配置)
 
 **Functionality:**
 - Support multiple AI providers: DeepSeek, OpenAI-compatible APIs
 - User-friendly configuration interface for API keys and endpoints
-- Configurable parameters: temperature, max_tokens, model selection
+- **Full parameter configuration**: temperature, max_tokens, top_p, frequency_penalty, presence_penalty
 - Built-in testing functionality with simple "OK" response or ping tests
 - Persistent configuration storage in SQLite database with auto-loading
 - HTTPx-based direct AI provider integration for better performance
 - DeepSeek reasoning model support with real-time thinking visualization
+- **Complete CRUD Operations**: Create, read, update, and delete AI provider configurations
+- **Edit Configuration**: Modify existing provider settings including API keys, models, and parameters
+- **Delete Configuration**: Remove AI providers with automatic active provider cleanup
+- **Parameter Validation**: Automatic max_tokens capping (≤8192) and parameter validation
+- **Extended Timeouts**: 5-minute timeout support for reasoning models
 
 **API Endpoints:**
 - `POST /api/ai-providers` - Add new AI provider configuration
 - `GET /api/ai-providers` - List configured providers
 - `PUT /api/ai-providers/{provider_id}` - Update provider config
+- **🆕 `DELETE /api/ai-providers/{provider_id}`** - Delete AI provider configuration
 - `POST /api/ai-providers/{provider_id}/test` - Test provider connection
 - `GET /api/ai-providers/active` - Get active provider configuration
 
-**Configuration Schema:**
+**Enhanced Configuration Schema:**
 ```json
 {
   "provider_name": "string",
@@ -142,11 +162,20 @@ helpful-assistant/
   "base_url": "string",
   "model": "string",
   "temperature": "number (0-2)",
-  "max_tokens": "number",
+  "max_tokens": "number (auto-capped ≤8192)",
+  "top_p": "number (0-1)",
+  "frequency_penalty": "number (-2 to 2)",
+  "presence_penalty": "number (-2 to 2)",
   "stream": "boolean",
   "is_active": "boolean"
 }
 ```
+
+**Parameter Handling:**
+- **User Configuration Respect**: All AI services now use user's configured parameters instead of hardcoded values
+- **Model-Specific Support**: DeepSeek reasoning models automatically exclude unsupported parameters
+- **Validation & Safety**: Automatic parameter validation and API limit compliance
+
 
 ### 3. AI Chat Interface (AI问答界面)
 
@@ -163,6 +192,7 @@ helpful-assistant/
 - **🆕 Background AI Response Persistence**: AI requests continue running in background even when WebSocket disconnects
 - **🆕 Page Navigation Continuity**: Users can switch pages during AI responses without losing content
 - **🆕 Intelligent Response Recovery**: Automatic detection and display of interrupted responses when returning to chat
+- **🆕 Manual Stream Control**: Users can manually stop AI responses mid-stream with dedicated stop button
 
 **API Endpoints:**
 - `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming with background task management
@@ -173,6 +203,7 @@ helpful-assistant/
 - `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
 - `PUT /api/chat/sessions/{session_id}/title` - Manual session renaming
 - **🆕 `GET /api/chat/sessions/{session_id}/status`** - Check session streaming status and background tasks
+- **🆕 `POST /api/chat/sessions/{session_id}/stop`** - Manually stop ongoing AI streaming responses
 
 **Enhanced Message Schema:**
 ```json
@@ -214,29 +245,41 @@ class BackgroundChatService:
         # Creates background task that persists beyond WebSocket lifecycle
         task = asyncio.create_task(self._background_chat_worker())
         
+    async def stop_session_task(session_id: int):
+        # Manually cancel running AI task for a session
+        # Updates database to mark messages as interrupted
+        # Broadcasts stop notification to all connected clients
+        
     async def _background_chat_worker():
         # Processes AI responses and saves to SQLite in real-time
         # Broadcasts to all active connections via WebSocket
         # Continues running even when connections disconnect
+        # Handles cancellation gracefully with proper cleanup
 ```
 
-```sql
--- Database: Added streaming_status field to chat_messages table
-ALTER TABLE chat_messages ADD COLUMN streaming_status TEXT DEFAULT 'completed';
--- Values: 'streaming', 'completed', 'interrupted'
-```
+**🛑 Manual Stop Functionality (手动停止功能):**
 
-```typescript
-// Frontend: Enhanced message handling with status awareness
-interface ChatMessage {
-  streaming_status?: 'streaming' | 'completed' | 'interrupted'
-}
+**Two Interrupt Scenarios:**
+1. **Automatic Interruption**: Page shutdown, navigation, or WebSocket disconnection
+2. **🆕 Manual User Stop**: User clicks stop button during AI response streaming
 
-// Automatic refresh of messages when background tasks complete
-const { data: sessionStatus } = useQuery({
-  refetchInterval: 2000, // Check for background task completion
-})
-```
+**Stop Button Implementation:**
+- **UI Behavior**: Send button transforms into red stop button during streaming
+- **Input State**: Shows "AI正在回复中..." placeholder and disables input
+- **Visual Feedback**: Immediate UI response when stop button clicked
+- **Status Display**: Messages show "响应已中断" after stopping
+
+**Backend Stop Processing:**
+- **Task Cancellation**: `asyncio.Task.cancel()` gracefully stops AI processing
+- **Database Updates**: Streaming messages marked as "interrupted" in SQLite
+- **WebSocket Broadcast**: "stopped" message sent to all connected clients
+- **Orphan Handling**: Detects and stops orphaned streaming messages
+
+**Frontend Stop Handling:**
+- **React State**: `isStreaming` state controls UI button switching
+- **API Integration**: `POST /api/chat/sessions/{id}/stop` endpoint
+- **Error Recovery**: Proper fallback handling if stop request fails
+- **Immediate Response**: UI updates instantly without waiting for server confirmation
 
 ### 3.1. AI Response Processing (AI响应处理)
 
@@ -337,15 +380,6 @@ title = final_answer.strip('"').strip("'").strip()
   "learning_insights": "array"
 }
 ```
-
-## Development Tools
-
-- **Context7 MCP**: Access to latest FastAPI documentation and best practices
-- **AI Integration**: HTTPx-based direct provider integration for optimal performance
-- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
-- **Type Safety**: Full TypeScript for frontend, Pydantic for backend validation
-- **Database**: SQLAlchemy ORM with async SQLite for data persistence
-
 ## Data Models
 
 ### Users
@@ -359,18 +393,21 @@ class User(BaseModel):
     active_ai_provider_id: int | None = None
 ```
 
-### Tasks
+### Tasks (Enhanced with Eisenhower Matrix)
 ```python
 class Task(BaseModel):
     id: int
     user_id: int
-    content: str
+    title: str                    # Brief 8-word summary (bold display)
+    content: str                  # Detailed task description
     deadline: datetime | None
-    assignee: str | None
-    priority: TaskPriority
-    difficulty: int  # 1-10 scale
-    source: TaskSource
-    status: TaskStatus
+    assignee: str | None          # 提出人 (who assigned the task)
+    participant: str = "你"       # 参与人 (who participates)
+    urgency: str                  # "low" | "high" - 紧迫性 (time-sensitive)
+    importance: str               # "low" | "high" - 重要性 (goal contribution)
+    difficulty: int               # 1-10 scale
+    source: str                   # "manual" | "extension" | "ai_generated"
+    status: str                   # "pending" | "in_progress" | "completed"
     created_at: datetime
     updated_at: datetime
 ```
@@ -401,7 +438,34 @@ class UserProfile(BaseModel):
 
 ## Implementation Status
 
-### ✅ Recent Updates (January 2025)
+### ✅ Latest Updates (January 2025)
+
+**🆕 Eisenhower Matrix Task Management System (January 13, 2025):**
+1. **Task Schema Enhancement**
+   - Added `title` field for 8-character bold task summaries
+   - Replaced `priority` with `urgency` and `importance` (Eisenhower Matrix)
+   - Added `participant` field (default: "你") alongside `assignee` (提出人)
+   - Enhanced multi-task generation from complex Chinese text input
+   - Database migration script with automatic data conversion
+
+2. **AI Service Improvements**
+   - **User Configuration Respect**: Fixed hardcoded parameters to use user's AI provider settings
+   - **Smart JSON Parsing**: Added JavaScript comment cleanup and error recovery
+   - **Extended Timeouts**: 5-minute timeout support for complex AI reasoning
+   - **Parameter Validation**: Automatic max_tokens capping at API limits (≤8192)
+   - **Model-Specific Handling**: DeepSeek reasoning model parameter optimization
+
+3. **Enhanced API Endpoints**
+   - `GET /api/tasks/stats` now returns Eisenhower Matrix distribution
+   - `GET /api/tasks?urgency=high&importance=high` filtering support
+   - Multi-task array generation from single text input
+   - Robust error handling with intelligent fallback mechanisms
+
+4. **Frontend Enhancements**
+   - **Bold title display** prominently above task content
+   - Separate urgency (green/red) and importance (blue/purple) badges
+   - Updated Chinese field labels (提出人, 参与人)
+   - Enhanced task generation hints with Eisenhower Matrix guidance
 
 **Complete SQLite Migration & Task Management Implementation:**
 1. **Database Migration from MongoDB to SQLite**
@@ -414,6 +478,7 @@ class UserProfile(BaseModel):
    - Improved streaming performance and error handling
    - Added DeepSeek reasoning model support with `reasoning_content` field
    - Enhanced provider configuration and testing with SQLite persistence
+   - Delete API Endpoint: `DELETE /api/ai-providers/{provider_id}` with smart active provider cleanup
 
 3. **Chat Interface Full Implementation**
    - Complete WebSocket-based real-time chat functionality
@@ -440,56 +505,8 @@ class UserProfile(BaseModel):
    - Proper dependency injection for database sessions
    - Comprehensive error handling and validation
    - Multi-task generation endpoint with batch processing
+   - **🆕 Complete AI Provider CRUD**: Added DELETE endpoint and enhanced frontend API service with `aiProvidersApi.delete()`
 
-### ✅ Completed Foundation Setup (Week 1)
-The basic foundation has been fully implemented:
-
-1. **FastAPI Backend Structure**
-   - Complete backend setup with proper project structure
-   - CORS configuration for frontend integration
-   - Environment configuration with Pydantic settings
-   - SQLite database setup with async SQLAlchemy ORM
-
-2. **Database Models**
-   - User model with JWT authentication support
-   - Task model with priority, status, and difficulty tracking
-   - AI Provider model for multi-provider configuration
-   - Chat Session model for conversation management
-
-3. **Authentication System** 
-   - Simple username/password registration and login
-   - JWT token-based authentication with secure password hashing
-   - Proper token validation and user session management
-
-4. **AI Service Integration**
-   - HTTPx-based AI provider abstraction with SQLite persistence
-   - Support for multiple providers (OpenAI, DeepSeek) with database storage
-   - Real-time streaming responses via WebSocket connections
-   - Configurable AI parameters (temperature, max_tokens, model selection)
-   - Connection testing functionality with proper error handling
-   - DeepSeek reasoning model support with `reasoning_content` visualization
-
-5. **AI Chat Interface**
-   - Real-time WebSocket streaming chat implementation with SQLite backend
-   - Session management with persistent chat history in SQLite
-   - Full integration with configured AI providers via SQLite
-   - Support for reasoning model thinking blocks display
-   - Complete CRUD operations for chat sessions and messages
-
-6. **Task Generation & Management**
-   - Complete task structure implemented in SQLite models
-   - Full task API endpoints connected to main routes with multi-task support
-   - AI-powered task generation from Chinese text with intelligent parsing
-   - Manual task creation with complete CRUD operations
-   - Task filtering and search with status and priority filters
-   - Advanced task card UI with priority visualization and difficulty indicators
-
-7. **Modern Frontend**
-   - React 18 with TypeScript and Vite setup
-   - Tailwind CSS styling with responsive design
-   - Zustand state management for authentication
-   - React Query for efficient API data fetching
-   - Complete UI for all implemented features
 
 ### 🔄 Current Architecture
 All core foundation components are operational with:
@@ -502,7 +519,7 @@ All core foundation components are operational with:
 ## Development Phases
 
 1. **Foundation Setup** (Week 1): ✅ **COMPLETED** - FastAPI backend setup, database models, authentication
-2. **AI Service Layer** (Week 2): ✅ **COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration
+2. **AI Service Layer** (Week 2): ✅ **COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration, full CRUD operations
 3. **Task Generation** (Week 3): ✅ **COMPLETED** - Full AI-powered multi-task generation, CRUD operations, UI integration
 4. **Chat Interface** (Week 4): ✅ **COMPLETED** - Real-time chat, WebSocket streaming, thinking blocks, SQLite persistence
 5. **User Profiling** (Week 5): ⏳ **PENDING** - Questionnaire system, analysis engine, difficulty estimation
@@ -511,7 +528,15 @@ All core foundation components are operational with:
 
 ## Next Priority Tasks
 
-1. **User Profiling System** (Week 5 Priority)
+**✅ Recently Completed (January 13, 2025):**
+- ✅ **Enhanced Task Schema**: Eisenhower Matrix implementation with title/content separation
+- ✅ **AI Service Optimization**: User configuration respect and parameter validation
+- ✅ **Multi-task Generation**: Complex text parsing with robust error handling
+- ✅ **Database Migration**: Complete schema update with backward compatibility
+
+**🔄 Current Focus:**
+
+1. **User Profiling System** (Next Priority)
    - Design psychology-based questionnaire system for work style assessment
    - Implement AI-powered user analysis based on questionnaire responses
    - Create task difficulty estimation algorithm based on user profiles
@@ -529,23 +554,3 @@ All core foundation components are operational with:
    - Performance optimization for large-scale task management
    - Enhanced error handling and user feedback systems
    - Deployment preparation and production optimization
-
-## Major Accomplishments Summary
-
-**✅ Fully Operational Core System:**
-- Complete user authentication and AI provider configuration
-- Real-time chat interface with DeepSeek reasoning model support
-- **Advanced multi-task generation from Chinese text with intelligent parsing**
-- Full task lifecycle management (create, read, update, delete)
-- Responsive frontend with modern UI components
-- SQLite-based data persistence with proper database architecture
-
-**🎯 Current System Capabilities:**
-- Extract multiple tasks from complex Chinese conversations
-- Automatically parse deadlines, assignees, priorities, and difficulty levels
-- Support both single and multi-task generation in one API call
-- Real-time AI chat with thinking process visualization
-- Complete task management dashboard with filtering and search
-- Seamless integration between AI services and task management
-- to memorize
-- to

@@ -12,10 +12,14 @@ interface TaskCardProps {
   onStatusChange?: (taskId: number, status: Task['status']) => void
 }
 
-const priorityColors = {
+const urgencyColors = {
   low: 'text-green-600 bg-green-50 border-green-200',
-  medium: 'text-yellow-600 bg-yellow-50 border-yellow-200',
   high: 'text-red-600 bg-red-50 border-red-200'
+}
+
+const importanceColors = {
+  low: 'text-blue-600 bg-blue-50 border-blue-200',
+  high: 'text-purple-600 bg-purple-50 border-purple-200'
 }
 
 const statusColors = {
@@ -24,10 +28,14 @@ const statusColors = {
   completed: 'text-green-600 bg-green-50 border-green-200'
 }
 
-const priorityLabels = {
-  low: '低',
-  medium: '中',
-  high: '高'
+const urgencyLabels = {
+  low: '不紧急',
+  high: '紧急'
+}
+
+const importanceLabels = {
+  low: '不重要',
+  high: '重要'
 }
 
 const statusLabels = {
@@ -75,12 +83,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
     <Card className="w-full max-w-md hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <CardTitle className="text-lg font-medium leading-tight">
-            {task.content}
-          </CardTitle>
-          <div className="flex gap-2 ml-2">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${priorityColors[task.priority]}`}>
-              {priorityLabels[task.priority]}
+          <div className="flex-1">
+            <CardTitle className="text-lg font-bold leading-tight mb-2">
+              {task.title}
+            </CardTitle>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {task.content}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 ml-2">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${urgencyColors[task.urgency]}`}>
+              {urgencyLabels[task.urgency]}
+            </span>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${importanceColors[task.importance]}`}>
+              {importanceLabels[task.importance]}
             </span>
             <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[task.status]}`}>
               {statusLabels[task.status]}
@@ -100,10 +116,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
           
           {task.assignee && (
             <div className="flex items-center gap-2">
-              <span className="font-medium">负责人:</span>
+              <span className="font-medium">提出人:</span>
               <span className="text-gray-800">{task.assignee}</span>
             </div>
           )}
+          
+          <div className="flex items-center gap-2">
+            <span className="font-medium">参与人:</span>
+            <span className="text-gray-800">{task.participant}</span>
+          </div>
           
           <div className="flex items-center gap-2">
             <span className="font-medium">难度:</span>
@@ -115,7 +136,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
           
           <div className="flex items-center gap-2 text-xs">
             <span className="font-medium">来源:</span>
-            <span>{task.source === 'manual' ? '手动创建' : task.source === 'ai_generated' ? 'AI生成' : '浏览器扩展'}</span>
+            <span>
+              {task.source === 'manual' 
+                ? '手动创建' 
+                : task.source === 'ai_generated' 
+                ? 'AI生成' 
+                : '浏览器扩展'}
+            </span>
           </div>
         </div>
       </CardContent>

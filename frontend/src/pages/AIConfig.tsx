@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { aiProvidersApi } from '@/services/api'
-import { Plus, Settings, CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { Plus, Settings, CheckCircle, AlertCircle, Loader, Edit, Trash2, MoreVertical } from 'lucide-react'
 import type { AIProvider, AIProviderCreate } from '@/types'
 
 export default function AIConfig() {
   const [showForm, setShowForm] = useState(false)
+  const [editingProvider, setEditingProvider] = useState<AIProvider | null>(null)
   const queryClient = useQueryClient()
 
   // Fetch AI providers
@@ -22,7 +23,7 @@ export default function AIConfig() {
     mutationFn: (provider: AIProviderCreate) => aiProvidersApi.create(provider),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
-      setShowForm(false)
+      handleCloseForm()
       alert('AI提供商添加成功！')
     },
     onError: (error: any) => {
@@ -35,8 +36,28 @@ export default function AIConfig() {
   const updateProviderMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<AIProvider> }) => 
       aiProvidersApi.update(id, data),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
+      // If this was from the form, close it and show success
+      if (editingProvider && variables.data.name) {
+        handleCloseForm()
+        alert('AI提供商更新成功！')
+      }
+    },
+    onError: (error: any) => {
+      alert('更新失败：' + (error.response?.data?.detail || '请稍后重试'))
+    },
+  })
+
+  // Delete provider mutation
+  const deleteProviderMutation = useMutation({
+    mutationFn: (id: number) => aiProvidersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
+      alert('AI提供商删除成功！')
+    },
+    onError: (error: any) => {
+      alert('删除失败：' + (error.response?.data?.detail || '请稍后重试'))
     },
   })
 
@@ -66,7 +87,18 @@ export default function AIConfig() {
     testProviderMutation.mutate(id)
   }
 
-  const handleCreateProvider = (e: React.FormEvent) => {
+  const handleEditProvider = (provider: AIProvider) => {
+    setEditingProvider(provider)
+    setShowForm(true)
+  }
+
+  const handleDeleteProvider = (id: number) => {
+    if (confirm('确定要删除这个AI提供商吗？此操作无法撤销。')) {
+      deleteProviderMutation.mutate(id)
+    }
+  }
+
+  const handleSubmitProvider = (e: React.FormEvent) => {
     e.preventDefault()
     const formData = new FormData(e.target as HTMLFormElement)
     
@@ -79,11 +111,27 @@ export default function AIConfig() {
       stream: true,
     }
 
-    createProviderMutation.mutate({
+    const providerData = {
       name: formData.get('name') as string,
       provider_type: formData.get('provider_type') as string,
       config,
-    })
+    }
+
+    if (editingProvider) {
+      // Edit existing provider
+      updateProviderMutation.mutate({
+        id: editingProvider.id.toString(),
+        data: providerData
+      })
+    } else {
+      // Create new provider
+      createProviderMutation.mutate(providerData)
+    }
+  }
+
+  const handleCloseForm = () => {
+    setShowForm(false)
+    setEditingProvider(null)
   }
 
   return (
@@ -150,27 +198,48 @@ export default function AIConfig() {
                     </div>
                   )}
 
-                  <div className="flex space-x-2 pt-2">
-                    {!provider.is_active && (
+                  <div className="flex justify-between items-center pt-2">
+                    <div className="flex space-x-2">
+                      {!provider.is_active && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSetActive(provider.id)}
+                          disabled={updateProviderMutation.isPending}
+                        >
+                          设为活跃
+                        </Button>
+                      )}
                       <Button
                         size="sm"
-                        onClick={() => handleSetActive(provider.id)}
-                        disabled={updateProviderMutation.isPending}
+                        variant="outline"
+                        onClick={() => handleTestProvider(provider.id)}
+                        disabled={testProviderMutation.isPending}
                       >
-                        设为活跃
+                        {testProviderMutation.isPending && testProviderMutation.variables === provider.id ? (
+                          <Loader className="w-4 h-4 animate-spin mr-1" />
+                        ) : null}
+                        测试连接
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTestProvider(provider.id)}
-                      disabled={testProviderMutation.isPending}
-                    >
-                      {testProviderMutation.isPending && testProviderMutation.variables === provider.id ? (
-                        <Loader className="w-4 h-4 animate-spin mr-1" />
-                      ) : null}
-                      测试连接
-                    </Button>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEditProvider(provider)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeleteProvider(provider.id)}
+                        disabled={deleteProviderMutation.isPending}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -184,13 +253,13 @@ export default function AIConfig() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <CardHeader>
-              <CardTitle>添加AI提供商</CardTitle>
+              <CardTitle>{editingProvider ? '编辑AI提供商' : '添加AI提供商'}</CardTitle>
               <CardDescription>
-                配置您的AI服务提供商信息
+                {editingProvider ? '修改您的AI服务提供商信息' : '配置您的AI服务提供商信息'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCreateProvider} className="space-y-4">
+              <form onSubmit={handleSubmitProvider} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">提供商名称</label>
@@ -198,6 +267,7 @@ export default function AIConfig() {
                       name="name" 
                       required 
                       placeholder="例如: 我的DeepSeek" 
+                      defaultValue={editingProvider?.name || ''}
                     />
                   </div>
                   <div>
@@ -206,6 +276,7 @@ export default function AIConfig() {
                       name="provider_type" 
                       required
                       className="w-full border border-input bg-background px-3 py-2 text-sm rounded-md"
+                      defaultValue={editingProvider?.provider_type || ''}
                     >
                       <option value="">选择类型</option>
                       <option value="openai">OpenAI</option>
@@ -221,6 +292,7 @@ export default function AIConfig() {
                     type="password"
                     required 
                     placeholder="输入您的API密钥" 
+                    defaultValue={editingProvider?.config?.api_key || ''}
                   />
                 </div>
 
@@ -229,6 +301,7 @@ export default function AIConfig() {
                   <Input 
                     name="base_url" 
                     placeholder="例如: https://api.deepseek.com" 
+                    defaultValue={editingProvider?.config?.base_url || ''}
                   />
                 </div>
 
@@ -238,6 +311,7 @@ export default function AIConfig() {
                     name="model" 
                     required
                     placeholder="例如: deepseek-chat 或 gpt-3.5-turbo" 
+                    defaultValue={editingProvider?.config?.model || ''}
                   />
                 </div>
 
@@ -250,7 +324,7 @@ export default function AIConfig() {
                       step="0.1"
                       min="0"
                       max="2"
-                      defaultValue="0.7"
+                      defaultValue={editingProvider?.config?.temperature?.toString() || '0.7'}
                     />
                   </div>
                   <div>
@@ -259,17 +333,20 @@ export default function AIConfig() {
                       name="max_tokens" 
                       type="number"
                       min="1"
-                      defaultValue="1000"
+                      defaultValue={editingProvider?.config?.max_tokens?.toString() || '1000'}
                     />
                   </div>
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                  <Button type="button" variant="outline" onClick={handleCloseForm}>
                     取消
                   </Button>
-                  <Button type="submit" disabled={createProviderMutation.isPending}>
-                    {createProviderMutation.isPending ? '添加中...' : '添加'}
+                  <Button type="submit" disabled={createProviderMutation.isPending || updateProviderMutation.isPending}>
+                    {editingProvider 
+                      ? (updateProviderMutation.isPending ? '更新中...' : '更新')
+                      : (createProviderMutation.isPending ? '添加中...' : '添加')
+                    }
                   </Button>
                 </div>
               </form>

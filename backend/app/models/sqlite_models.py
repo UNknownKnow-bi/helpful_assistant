@@ -57,20 +57,26 @@ class AIProviderResponse(AIProviderBase):
 
 # Task Models
 class TaskBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)  # Brief 8-word summary
     content: str = Field(..., min_length=1, max_length=1000)
     deadline: Optional[datetime] = None
-    assignee: Optional[str] = None
-    priority: str = "medium"  # "low", "medium", "high"
+    assignee: Optional[str] = None  # 提出人 (who assigned the task)
+    participant: str = "你"  # 参与人 (who participates, default "你")
+    urgency: str = "low"  # "low", "high" - 紧迫性
+    importance: str = "low"  # "low", "high" - 重要性
     difficulty: int = Field(default=5, ge=1, le=10)
 
 class TaskCreate(TaskBase):
     pass
 
 class TaskUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
     content: Optional[str] = Field(None, min_length=1, max_length=1000)
     deadline: Optional[datetime] = None
     assignee: Optional[str] = None
-    priority: Optional[str] = None
+    participant: Optional[str] = None
+    urgency: Optional[str] = None
+    importance: Optional[str] = None
     difficulty: Optional[int] = Field(None, ge=1, le=10)
     status: Optional[str] = None
 

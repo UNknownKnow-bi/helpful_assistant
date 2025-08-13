@@ -112,6 +112,10 @@ export const aiProvidersApi = {
     return response.data
   },
   
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/ai-providers/${id}`)
+  },
+  
   test: async (id: number): Promise<{ success: boolean; message: string }> => {
     const response = await api.post(`/ai-providers/${id}/test`)
     return response.data
@@ -163,6 +167,11 @@ export const chatApi = {
     updated_at: string
   }> => {
     const response = await api.get(`/chat/sessions/${sessionId}/status`)
+    return response.data
+  },
+  
+  stopChatStream: async (sessionId: number): Promise<{ message: string }> => {
+    const response = await api.post(`/chat/sessions/${sessionId}/stop`)
     return response.data
   },
 }

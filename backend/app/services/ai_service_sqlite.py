@@ -9,6 +9,40 @@ import asyncio
 class AIServiceSQLite:
     def __init__(self):
         self.models_cache = {}
+    
+    def _build_payload(self, config: Dict[str, Any], messages: List[Dict[str, str]], 
+                      stream: bool = False, max_tokens_override: int = None) -> Dict[str, Any]:
+        """Build API payload using user configuration with optional overrides"""
+        model = config.get("model", "gpt-3.5-turbo")
+        
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": stream
+        }
+        
+        # Handle reasoning models that don't support certain parameters
+        if "deepseek-reasoner" in model:
+            # DeepSeek reasoning models don't support temperature and some other parameters
+            if max_tokens_override:
+                payload["max_tokens"] = min(max_tokens_override, 8192)  # Cap at 8192
+            elif "max_tokens" in config:
+                payload["max_tokens"] = min(config["max_tokens"], 8192)  # Cap at 8192
+        else:
+            # Use user's configured parameters for regular models
+            if "temperature" in config:
+                payload["temperature"] = config["temperature"]
+            if "max_tokens" in config or max_tokens_override:
+                max_tokens_value = max_tokens_override or config["max_tokens"]
+                payload["max_tokens"] = min(max_tokens_value, 8192)  # Cap at 8192
+            if "top_p" in config:
+                payload["top_p"] = config["top_p"]
+            if "frequency_penalty" in config:
+                payload["frequency_penalty"] = config["frequency_penalty"]
+            if "presence_penalty" in config:
+                payload["presence_penalty"] = config["presence_penalty"]
+        
+        return payload
 
     def get_active_provider(self, user_id: int, db: Session) -> Optional[AIProvider]:
         """Get active AI provider for user from SQLite"""
@@ -27,14 +61,8 @@ class AIServiceSQLite:
         try:
             config = provider.config
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Prepare the request payload
-                payload = {
-                    "model": config.get("model", "gpt-3.5-turbo"),
-                    "messages": messages,
-                    "stream": True,
-                    "temperature": config.get("temperature", 0.7),
-                    "max_tokens": config.get("max_tokens", 1000)
-                }
+                # Prepare the request payload using user configuration
+                payload = self._build_payload(config, messages, stream=True)
                 
                 headers = {
                     "Authorization": f"Bearer {config.get('api_key', '')}",
@@ -114,41 +142,54 @@ class AIServiceSQLite:
         
         logger.info(f"Found active provider: {provider.name} (ID: {provider.id}) for user {user_id}")
 
-        # AI prompt for Chinese task extraction
+        # AI prompt for Chinese task extraction using Eisenhower Matrix
         system_prompt = """你是一个智能任务解析助手。请从用户输入的中文文本中提取任务信息，返回固定的JSON格式。
 
 规则：
 1. 只提取明确的任务信息，不确定的部分设为null
-2. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
-3. priority只能是: "low", "medium", "high"
-4. difficulty是1-10的数字，基于任务复杂度
-5. 如果没有明确时间信息，deadline设为null
-6. 如果没有指定负责人，assignee设为null
-7. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
+2. title: 用8个字以内简洁概括任务内容（例如："完成项目报告"、"参加会议讨论"）
+3. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
+4. assignee: 将任务分配给用户的人，没有明确指定时设为null
+5. participant: 参与执行任务的人，默认为"你"
+6. 使用艾森豪威尔矩阵评估优先级：
+   - urgency（紧迫性）: "low"或"high" - 是否有时间限制，需要立即关注
+   - importance（重要性）: "low"或"high" - 是否对长期目标有重要贡献
+7. difficulty是1-10的数字，基于任务复杂度
+8. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
+9. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
 
 单任务返回格式：
 {
-  "content": "任务描述",
+  "title": "8字内任务标题",
+  "content": "详细任务描述",
   "deadline": "2024-01-15T09:00:00" 或 null,
-  "assignee": "负责人" 或 null,
-  "priority": "low|medium|high",
+  "assignee": "提出人" 或 null,
+  "participant": "你",
+  "urgency": "low|high",
+  "importance": "low|high",
   "difficulty": 1-10
 }
 
 多任务返回格式：
 [
   {
-    "content": "任务1描述",
+    "title": "任务1标题",
+    "content": "任务1详细描述",
     "deadline": "2024-01-15T09:00:00" 或 null,
-    "assignee": "负责人" 或 null,
-    "priority": "low|medium|high",
+    "assignee": "提出人" 或 null,
+    "participant": "你",
+    "urgency": "low|high",
+    "importance": "low|high",
     "difficulty": 1-10
   },
   {
-    "content": "任务2描述",
+    "title": "任务2标题",
+    "content": "任务2详细描述",
     "deadline": "2024-01-16T14:00:00" 或 null,
-    "assignee": "负责人" 或 null,
-    "priority": "low|medium|high",
+    "assignee": "提出人" 或 null,
+    "participant": "你",
+    "urgency": "low|high",
+    "importance": "low|high",
     "difficulty": 1-10
   }
 ]"""
@@ -159,26 +200,24 @@ class AIServiceSQLite:
             config = provider.config
             model = config.get("model", "gpt-3.5-turbo")
             
-            # DeepSeek reasoning model may take longer, set 60s timeout
-            timeout = httpx.Timeout(60.0, read=60.0)
+            # Set 5 minutes timeout for AI requests
+            timeout = httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0)
             async with httpx.AsyncClient(timeout=timeout) as client:
-                # Base payload
-                payload = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ]
-                }
+                # Build payload using user configuration
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
                 
-                # DeepSeek reasoning model doesn't support temperature and other parameters
-                if "deepseek-reasoner" in model:
-                    payload["max_tokens"] = 2000  # Increase for JSON response
+                # For task generation, we prefer higher token limits for JSON responses
+                # But still respect user's max_tokens if they configured it
+                max_tokens_for_task = None
+                if "deepseek-reasoner" in config.get("model", ""):
+                    max_tokens_for_task = config.get("max_tokens", 2000)  # More tokens for reasoning
                 else:
-                    payload.update({
-                        "temperature": 0.3,  # Lower temperature for more consistent JSON output
-                        "max_tokens": 500
-                    })
+                    max_tokens_for_task = config.get("max_tokens", 1000)  # User config or reasonable default
+                
+                payload = self._build_payload(config, messages, stream=False, max_tokens_override=max_tokens_for_task)
                 
                 headers = {
                     "Authorization": f"Bearer {config.get('api_key', '')}",
@@ -204,6 +243,8 @@ class AIServiceSQLite:
                     logger.info(f"DeepSeek reasoning: {message.get('reasoning_content')}")
                 
                 logger.info(f"AI response content: {ai_response}")
+                print(f"[DEBUG] Full AI response content:\n{ai_response}")
+                print(f"[DEBUG] AI response length: {len(ai_response)}")
                 
                 # Try to parse JSON from AI response
                 try:
@@ -224,50 +265,86 @@ class AIServiceSQLite:
                         else:
                             raise ValueError("No JSON found in response")
                     
+                    # Clean up JavaScript-style comments that are invalid in JSON
+                    # Remove // single-line comments
+                    json_str = re.sub(r'//.*?(?=\n|$)', '', json_str, flags=re.MULTILINE)
+                    # Remove /* multi-line comments */
+                    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+                    # Clean up any trailing commas that might be left after comment removal
+                    json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+                    print(f"[DEBUG] Cleaned JSON: {json_str[:200]}...")
+                    
                     task_data = json.loads(json_str)
                     logger.info(f"Parsed task data: {task_data}")
+                    print(f"[DEBUG] Parsed task data type: {type(task_data)}")
+                    print(f"[DEBUG] Parsed task data: {task_data}")
                     
                     # Handle both single task and array of tasks
                     if isinstance(task_data, list):
                         logger.info(f"AI returned {len(task_data)} tasks")
+                        print(f"[DEBUG] AI returned {len(task_data)} tasks as array")
                         validated_tasks = []
-                        for single_task in task_data:
+                        for i, single_task in enumerate(task_data):
+                            print(f"[DEBUG] Processing task {i+1}: {single_task}")
                             validated_task = self._validate_single_task(single_task, text, logger)
                             validated_tasks.append(validated_task)
+                        print(f"[DEBUG] Final validated tasks count: {len(validated_tasks)}")
                         return validated_tasks
                     else:
                         # Single task
                         logger.info("AI returned single task")
+                        print(f"[DEBUG] AI returned single task object")
                         validated_task = self._validate_single_task(task_data, text, logger)
                         return [validated_task]  # Return as array for consistency
                         
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.error(f"JSON parsing error: {e}, AI response: {ai_response}")
+                    print(f"[DEBUG] JSON parsing failed with error: {e}")
+                    print(f"[DEBUG] AI response that failed to parse:\n{ai_response}")
                     # Fallback to simple parsing if AI response is invalid
-                    return [{
+                    fallback_task = {
+                        "title": text[:8] if len(text) <= 8 else text[:7] + "...",
                         "content": text,
                         "deadline": None,
                         "assignee": None,
-                        "priority": "medium",
+                        "participant": "你",
+                        "urgency": "low",
+                        "importance": "low",
                         "difficulty": 5
-                    }]
+                    }
+                    print(f"[DEBUG] Using fallback task: {fallback_task}")
+                    return [fallback_task]
                     
         except Exception as e:
             import traceback
             logger.error(f"AI service error: {e}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
+            print(f"[DEBUG] AI service failed with exception: {e}")
+            print(f"[DEBUG] Using fallback due to AI service failure")
             # Fallback to simple parsing if AI service fails
-            return [{
+            fallback_task = {
+                "title": text[:8] if len(text) <= 8 else text[:7] + "...",
                 "content": text,
                 "deadline": None,
                 "assignee": None,
-                "priority": "medium",
+                "participant": "你",
+                "urgency": "low",
+                "importance": "low",
                 "difficulty": 5
-            }]
+            }
+            print(f"[DEBUG] Service fallback task: {fallback_task}")
+            return [fallback_task]
 
     def _validate_single_task(self, task_data: Dict[str, Any], original_text: str, logger) -> Dict[str, Any]:
         """Validate and clean a single task data object"""
         # Validate and clean the data
+        title = task_data.get("title", "")
+        if not title:
+            # Generate a simple title from content or original text
+            content_for_title = task_data.get("content", original_text)
+            title = content_for_title[:8] if len(content_for_title) <= 8 else content_for_title[:7] + "..."
+            logger.warning(f"AI response missing 'title' field, using generated title: {title}")
+        
         content = task_data.get("content")
         if not content:
             logger.warning(f"AI response missing 'content' field, using original text")
@@ -284,16 +361,21 @@ class AIServiceSQLite:
                 difficulty = 5  # Default on conversion error
         
         validated_data = {
+            "title": title,
             "content": content,
             "deadline": task_data.get("deadline"),
             "assignee": task_data.get("assignee"),
-            "priority": task_data.get("priority", "medium"),
+            "participant": task_data.get("participant", "你"),
+            "urgency": task_data.get("urgency", "low"),
+            "importance": task_data.get("importance", "low"),
             "difficulty": difficulty
         }
         
-        # Validate priority
-        if validated_data["priority"] not in ["low", "medium", "high"]:
-            validated_data["priority"] = "medium"
+        # Validate urgency and importance
+        if validated_data["urgency"] not in ["low", "high"]:
+            validated_data["urgency"] = "low"
+        if validated_data["importance"] not in ["low", "high"]:
+            validated_data["importance"] = "low"
         
         # Parse deadline if it's a string
         if validated_data["deadline"]:
@@ -368,14 +450,17 @@ class AIServiceSQLite:
             ]
             
             async with httpx.AsyncClient(timeout=60.0) as client:  # Increased timeout for reasoning models
-                # Use non-streaming request for title generation
-                payload = {
-                    "model": config.get("model", "gpt-3.5-turbo"),
-                    "messages": messages,
-                    "max_tokens": 3000,  # Fixed token limit for all models
-                    "temperature": 0.3,
-                    "stream": False  # Important: disable streaming for simple response
-                }
+                # For title generation, limit tokens appropriately but respect user config
+                model = config.get("model", "gpt-3.5-turbo")
+                if "deepseek-reasoner" in model:
+                    # Reasoning models need more tokens to complete the reasoning process
+                    max_tokens_for_title = config.get("max_tokens", 3000)
+                else:
+                    # For title generation, use user config but cap at reasonable limit for titles
+                    user_max_tokens = config.get("max_tokens", 100)
+                    max_tokens_for_title = min(user_max_tokens, 100)  # Cap at 100 for efficiency
+                
+                payload = self._build_payload(config, messages, stream=False, max_tokens_override=max_tokens_for_title)
                 
                 response = await client.post(
                     f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",

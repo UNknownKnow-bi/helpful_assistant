@@ -245,6 +245,30 @@ async def get_session_status(
         "updated_at": session.updated_at
     }
 
+@router.post("/sessions/{session_id}/stop")
+async def stop_chat_stream(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    """Stop ongoing AI streaming for this session"""
+    # Verify session belongs to user
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    # Request stop from background service
+    stopped = await background_chat_service.stop_session_task(session_id)
+    
+    if not stopped:
+        raise HTTPException(status_code=404, detail="No active streaming found for this session")
+    
+    return {"message": "Chat stream stopped successfully"}
+
 @router.websocket("/ws/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: int):
     await websocket.accept()

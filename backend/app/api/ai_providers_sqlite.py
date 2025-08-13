@@ -160,6 +160,35 @@ async def test_ai_provider(
     
     return test_result
 
+@router.delete("/{provider_id}")
+async def delete_ai_provider(
+    provider_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_sync)
+):
+    """Delete an AI provider configuration"""
+    # Get the provider
+    db_provider = db.query(SQLiteAIProvider).filter(
+        SQLiteAIProvider.id == provider_id,
+        SQLiteAIProvider.user_id == current_user.id
+    ).first()
+    
+    if not db_provider:
+        raise HTTPException(status_code=404, detail="AI provider not found")
+    
+    # If this was the active provider, update user's active provider
+    if db_provider.is_active:
+        from app.database.sqlite_models import User as SQLiteUser
+        db.query(SQLiteUser).filter(
+            SQLiteUser.id == current_user.id
+        ).update({"active_ai_provider_id": None})
+    
+    # Delete the provider
+    db.delete(db_provider)
+    db.commit()
+    
+    return {"message": "AI provider deleted successfully"}
+
 @router.get("/active", response_model=AIProviderResponse)
 async def get_active_provider(
     current_user: User = Depends(get_current_user),

@@ -40,10 +40,13 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(200), nullable=False)  # Brief 8-word summary
     content = Column(Text, nullable=False)
     deadline = Column(DateTime, nullable=True)
-    assignee = Column(String(100), nullable=True)
-    priority = Column(String(20), default="medium")  # "low", "medium", "high"
+    assignee = Column(String(100), nullable=True)  # 提出人 (who assigned the task)
+    participant = Column(String(100), default="你")  # 参与人 (who participates, default "你")
+    urgency = Column(String(20), default="low")  # "low", "high" - 紧迫性
+    importance = Column(String(20), default="low")  # "low", "high" - 重要性
     difficulty = Column(Integer, default=5)  # 1-10 scale
     source = Column(String(20), default="manual")  # "manual", "extension"
     status = Column(String(20), default="pending")  # "pending", "in_progress", "completed"

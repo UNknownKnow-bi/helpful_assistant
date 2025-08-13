@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { chatApi } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
-import { Send, Plus, MessageSquare, ChevronDown, ChevronRight, Trash2, Edit3, MoreVertical } from 'lucide-react'
+import { Send, Plus, MessageSquare, ChevronDown, ChevronRight, Trash2, Edit3, MoreVertical, Square } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { formatDate } from '@/lib/utils'
 import type { ChatSession, ChatMessage } from '@/types'
@@ -20,6 +20,7 @@ export default function Chat() {
   const [renamingSession, setRenamingSession] = useState<number | null>(null)
   const [newSessionTitle, setNewSessionTitle] = useState('')
   const [showContextMenu, setShowContextMenu] = useState<{ sessionId: number; x: number; y: number } | null>(null)
+  const [isStreaming, setIsStreaming] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { user } = useAuthStore()
@@ -75,6 +76,34 @@ export default function Chat() {
       refetchSessions()
       setRenamingSession(null)
       setNewSessionTitle('')
+    },
+  })
+
+  // Stop chat stream mutation
+  const stopStreamMutation = useMutation({
+    mutationFn: (sessionId: number) => chatApi.stopChatStream(sessionId),
+    onSuccess: () => {
+      console.log('Stop stream request successful')
+      setIsStreaming(false)
+      // Update the last streaming message to interrupted status
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1]
+        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.streaming_status === 'streaming') {
+          return [
+            ...prev.slice(0, -1),
+            {
+              ...lastMessage,
+              streaming_status: 'interrupted'
+            }
+          ]
+        }
+        return prev
+      })
+    },
+    onError: (error) => {
+      console.error('Stop stream request failed:', error)
+      // Still set streaming to false on error
+      setIsStreaming(false)
     },
   })
 
@@ -223,6 +252,7 @@ export default function Chat() {
       } else if (data.type === 'streaming_start') {
         // Start a new streaming message
         console.log('Starting new streaming message:', data.message_id)
+        setIsStreaming(true)
         setMessages(prev => [
           ...prev,
           {
@@ -254,6 +284,7 @@ export default function Chat() {
         })
       } else if (data.type === 'done') {
         // Finalize the streaming message
+        setIsStreaming(false)
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1]
           if (lastMessage && lastMessage.streaming_status === 'streaming') {
@@ -267,8 +298,26 @@ export default function Chat() {
           }
           return prev
         })
+      } else if (data.type === 'stopped') {
+        // Handle manual stop by user
+        console.log('Chat stream stopped by user')
+        setIsStreaming(false)
+        setMessages(prev => {
+          const lastMessage = prev[prev.length - 1]
+          if (lastMessage && lastMessage.role === 'assistant' && lastMessage.streaming_status === 'streaming') {
+            return [
+              ...prev.slice(0, -1),
+              {
+                ...lastMessage,
+                streaming_status: 'interrupted'
+              }
+            ]
+          }
+          return prev
+        })
       } else if (data.type === 'error') {
         console.error('Chat error:', data.content)
+        setIsStreaming(false)
         // Mark any streaming message as interrupted on error
         setMessages(prev => {
           const lastMessage = prev[prev.length - 1]
@@ -336,6 +385,16 @@ export default function Chat() {
 
   const handleNewSession = () => {
     createSessionMutation.mutate()
+  }
+
+  const handleStopStream = () => {
+    console.log('Stop button clicked', { currentSession, isStreaming })
+    if (currentSession && isStreaming) {
+      console.log('Calling stop API for session:', currentSession)
+      stopStreamMutation.mutate(currentSession)
+    } else {
+      console.log('Cannot stop - no current session or not streaming')
+    }
   }
 
   const handleSessionSelect = (sessionId: number) => {
@@ -532,7 +591,7 @@ export default function Chat() {
                       {message.role === 'assistant' && message.streaming_status === 'interrupted' && (
                         <div className="mt-2 flex items-center text-sm text-orange-500">
                           <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
-                          <span>响应已中断 (切换页面导致)</span>
+                          <span>响应已中断</span>
                         </div>
                       )}
                     </div>
@@ -554,16 +613,30 @@ export default function Chat() {
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="输入您的问题..."
-                  disabled={!isConnected}
+                  placeholder={isStreaming ? "AI正在回复中..." : "输入您的问题..."}
+                  disabled={!isConnected || isStreaming}
                   className="flex-1"
                 />
-                <Button type="submit" disabled={!newMessage.trim() || !isConnected}>
-                  <Send className="w-4 h-4" />
-                </Button>
+                {isStreaming ? (
+                  <Button 
+                    type="button" 
+                    onClick={handleStopStream}
+                    disabled={stopStreamMutation.isPending}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <Square className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={!newMessage.trim() || !isConnected}>
+                    <Send className="w-4 h-4" />
+                  </Button>
+                )}
               </form>
               {!isConnected && currentSession && (
                 <p className="text-sm text-orange-600 mt-2">正在连接...</p>
+              )}
+              {isStreaming && (
+                <p className="text-sm text-blue-600 mt-2">AI正在回复中，点击停止按钮可中断响应</p>
               )}
             </div>
           </>

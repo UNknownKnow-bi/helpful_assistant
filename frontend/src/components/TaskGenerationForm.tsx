@@ -100,10 +100,11 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
           <div className="bg-blue-50 p-3 rounded-md">
             <h4 className="text-sm font-medium text-blue-800 mb-2">AI能识别的信息：</h4>
             <ul className="text-xs text-blue-700 space-y-1">
-              <li>• 任务内容和描述</li>
+              <li>• 任务标题和详细描述</li>
               <li>• 截止时间（如"明天下午3点"、"本周五"、"12月15日"）</li>
-              <li>• 负责人姓名</li>
-              <li>• 优先级关键词（"紧急"、"重要"、"一般"等）</li>
+              <li>• 提出人/分配人姓名</li>
+              <li>• 紧迫性（是否有时间限制，需要立即关注）</li>
+              <li>• 重要性（是否对长期目标有重要贡献）</li>
               <li>• 难度描述（"简单"、"复杂"、"困难"等）</li>
             </ul>
           </div>

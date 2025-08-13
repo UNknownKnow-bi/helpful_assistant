@@ -36,10 +36,11 @@ async def get_task_stats(
     in_progress = len([t for t in tasks if t.status == "in_progress"])
     pending = len([t for t in tasks if t.status == "pending"])
     
-    # Priority distribution
-    high_priority = len([t for t in tasks if t.priority == "high"])
-    medium_priority = len([t for t in tasks if t.priority == "medium"])
-    low_priority = len([t for t in tasks if t.priority == "low"])
+    # Priority distribution based on Eisenhower Matrix
+    urgent_important = len([t for t in tasks if t.urgency == "high" and t.importance == "high"])
+    urgent_not_important = len([t for t in tasks if t.urgency == "high" and t.importance == "low"])
+    not_urgent_important = len([t for t in tasks if t.urgency == "low" and t.importance == "high"])
+    not_urgent_not_important = len([t for t in tasks if t.urgency == "low" and t.importance == "low"])
     
     # Average difficulty
     avg_difficulty = sum([t.difficulty for t in tasks]) / total if total > 0 else 0
@@ -51,9 +52,10 @@ async def get_task_stats(
         "pending": pending,
         "completion_rate": (completed / total * 100) if total > 0 else 0,
         "priority_distribution": {
-            "high": high_priority,
-            "medium": medium_priority,
-            "low": low_priority
+            "urgent_important": urgent_important,
+            "urgent_not_important": urgent_not_important,
+            "not_urgent_important": not_urgent_important,
+            "not_urgent_not_important": not_urgent_not_important
         },
         "average_difficulty": round(avg_difficulty, 1)
     }
@@ -68,10 +70,13 @@ async def create_task(
     """Create a new task manually"""
     db_task = TaskModel(
         user_id=current_user.id,
+        title=task.title,
         content=task.content,
         deadline=task.deadline,
         assignee=task.assignee,
-        priority=task.priority,
+        participant=task.participant,
+        urgency=task.urgency,
+        importance=task.importance,
         difficulty=task.difficulty,
         source="manual"
     )
@@ -85,15 +90,18 @@ async def get_tasks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     status: str = None,
-    priority: str = None
+    urgency: str = None,
+    importance: str = None
 ):
     """Get all tasks for current user with optional filtering"""
     query = db.query(TaskModel).filter(TaskModel.user_id == current_user.id)
     
     if status:
         query = query.filter(TaskModel.status == status)
-    if priority:
-        query = query.filter(TaskModel.priority == priority)
+    if urgency:
+        query = query.filter(TaskModel.urgency == urgency)
+    if importance:
+        query = query.filter(TaskModel.importance == importance)
     
     tasks = query.order_by(TaskModel.created_at.desc()).all()
     return tasks
@@ -196,10 +204,13 @@ async def generate_task_from_text(
         for task_data in tasks_data:
             db_task = TaskModel(
                 user_id=current_user.id,
+                title=task_data.get("title", text[:8] if len(text) <= 8 else text[:7] + "..."),
                 content=task_data.get("content", text),
                 deadline=task_data.get("deadline"),
                 assignee=task_data.get("assignee"),
-                priority=task_data.get("priority", "medium"),
+                participant=task_data.get("participant", "你"),
+                urgency=task_data.get("urgency", "low"),
+                importance=task_data.get("importance", "low"),
                 difficulty=task_data.get("difficulty", 5),
                 source="ai_generated"
             )

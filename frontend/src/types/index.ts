@@ -7,30 +7,39 @@ export interface User {
 
 export interface Task {
   id: number
+  title: string
   content: string
   deadline?: string
-  assignee?: string
-  priority: 'low' | 'medium' | 'high'
+  assignee?: string  // 提出人 (who assigned the task)
+  participant: string  // 参与人 (who participates, default "你")
+  urgency: 'low' | 'high'  // 紧迫性
+  importance: 'low' | 'high'  // 重要性
   difficulty: number
-  source: 'manual' | 'extension'
+  source: 'manual' | 'extension' | 'ai_generated'
   status: 'pending' | 'in_progress' | 'completed'
   created_at: string
   updated_at: string
 }
 
 export interface TaskCreate {
+  title: string
   content: string
   deadline?: string
   assignee?: string
-  priority?: 'low' | 'medium' | 'high'
+  participant?: string
+  urgency?: 'low' | 'high'
+  importance?: 'low' | 'high'
   difficulty?: number
 }
 
 export interface TaskUpdate {
+  title?: string
   content?: string
   deadline?: string
   assignee?: string
-  priority?: 'low' | 'medium' | 'high'
+  participant?: string
+  urgency?: 'low' | 'high'
+  importance?: 'low' | 'high'
   difficulty?: number
   status?: 'pending' | 'in_progress' | 'completed'
 }
