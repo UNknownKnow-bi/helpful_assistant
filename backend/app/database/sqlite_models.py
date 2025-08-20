@@ -12,11 +12,13 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(128), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    active_ai_provider_id = Column(Integer, ForeignKey("ai_providers.id"), nullable=True)
+    active_text_provider_id = Column(Integer, ForeignKey("ai_providers.id"), nullable=True)
+    active_image_provider_id = Column(Integer, ForeignKey("ai_providers.id"), nullable=True)
 
     # Relationships
     ai_providers = relationship("AIProvider", back_populates="user", foreign_keys="AIProvider.user_id")
-    active_ai_provider = relationship("AIProvider", foreign_keys=[active_ai_provider_id])
+    active_text_provider = relationship("AIProvider", foreign_keys=[active_text_provider_id])
+    active_image_provider = relationship("AIProvider", foreign_keys=[active_image_provider_id])
     tasks = relationship("Task", back_populates="user")
     chat_sessions = relationship("ChatSession", back_populates="user")
 
@@ -26,7 +28,8 @@ class AIProvider(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String(100), nullable=False)
-    provider_type = Column(String(50), nullable=False)  # "openai", "deepseek", etc.
+    provider_type = Column(String(50), nullable=False)  # "openai", "deepseek", "imageOCR"
+    category = Column(String(20), nullable=False, default="text")  # "text" or "image"
     config = Column(JSON, nullable=False)
     is_active = Column(Boolean, default=False)
     last_tested = Column(DateTime, nullable=True)

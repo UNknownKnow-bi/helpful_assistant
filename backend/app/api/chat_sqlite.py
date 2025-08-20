@@ -330,6 +330,7 @@ async def websocket_chat(websocket: WebSocket, session_id: int):
             
             user_message = message_data.get("message", "")
             user_id = message_data.get("user_id")
+            model_id = message_data.get("model_id")  # Optional AI provider ID
             
             if not user_message or not user_id:
                 await websocket.send_text(json.dumps({
@@ -395,7 +396,7 @@ async def websocket_chat(websocket: WebSocket, session_id: int):
                 
                 # Start background AI processing task
                 await background_chat_service.start_background_chat(
-                    session_id, user_id, message_history, assistant_msg.id
+                    session_id, user_id, message_history, assistant_msg.id, model_id
                 )
                 
             finally:

@@ -19,17 +19,20 @@ class User(UserBase):
     id: int
     password_hash: str
     created_at: datetime
-    active_ai_provider_id: Optional[int] = None
+    active_text_provider_id: Optional[int] = None
+    active_image_provider_id: Optional[int] = None
 
 class UserResponse(UserBase):
     id: int
     created_at: datetime
-    active_ai_provider_id: Optional[int] = None
+    active_text_provider_id: Optional[int] = None
+    active_image_provider_id: Optional[int] = None
 
 # AI Provider Models
 class AIProviderBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     provider_type: str = Field(..., min_length=1, max_length=50)
+    category: str = Field(default="text", pattern="^(text|image)$")
     config: Dict[str, Any] = Field(default_factory=dict)
 
 class AIProviderCreate(AIProviderBase):
@@ -37,6 +40,7 @@ class AIProviderCreate(AIProviderBase):
 
 class AIProviderUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
+    category: Optional[str] = Field(None, pattern="^(text|image)$")
     config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
 
@@ -168,7 +172,7 @@ class UserProfileBase(BaseModel):
     # Basic Info
     name: Optional[str] = Field(None, max_length=100)
     work_nickname: Optional[str] = Field(None, max_length=100)
-    gender: Optional[str] = Field(None, pattern="^(男|女|无性别|其他性别)$")
+    gender: Optional[str] = Field(None, max_length=50)
     job_type: Optional[str] = Field(None, max_length=200)  # Free text
     job_level: Optional[str] = Field(None, pattern="^(实习|初级|中级|高级)$")
     is_manager: Optional[bool] = False

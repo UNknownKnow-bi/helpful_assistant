@@ -3,12 +3,12 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
-import { chatApi } from '@/services/api'
+import { chatApi, aiProvidersApi } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { Send, Plus, MessageSquare, ChevronDown, ChevronRight, Trash2, Edit3, MoreVertical, Square } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { formatDate } from '@/lib/utils'
-import type { ChatSession, ChatMessage } from '@/types'
+import type { ChatSession, ChatMessage, AIProvider } from '@/types'
 
 export default function Chat() {
   const [currentSession, setCurrentSession] = useState<number | null>(null)
@@ -21,6 +21,7 @@ export default function Chat() {
   const [newSessionTitle, setNewSessionTitle] = useState('')
   const [showContextMenu, setShowContextMenu] = useState<{ sessionId: number; x: number; y: number } | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [selectedModelId, setSelectedModelId] = useState<number | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { user } = useAuthStore()
@@ -29,6 +30,12 @@ export default function Chat() {
   const { data: sessions = [], refetch: refetchSessions } = useQuery({
     queryKey: ['chat-sessions'],
     queryFn: chatApi.getSessions,
+  })
+
+  // Fetch available text models
+  const { data: textModels = [] } = useQuery({
+    queryKey: ['text-models'],
+    queryFn: aiProvidersApi.getTextModels,
   })
 
   // Create new session mutation
@@ -377,7 +384,8 @@ export default function Chat() {
     // Send message via WebSocket
     wsRef.current.send(JSON.stringify({
       message: messageContent,
-      user_id: user.id
+      user_id: user.id,
+      model_id: selectedModelId
     }))
     
     setNewMessage('')
@@ -609,6 +617,24 @@ export default function Chat() {
 
             {/* Input Area */}
             <div className="p-4 bg-white border-t">
+              {/* Model Selection */}
+              {textModels.length > 0 && (
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-2">选择AI模型</label>
+                  <select
+                    value={selectedModelId || ''}
+                    onChange={(e) => setSelectedModelId(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">使用默认模型</option>
+                    {textModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name} ({model.config.model}) {model.is_active && '★'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <form onSubmit={handleSendMessage} className="flex space-x-2">
                 <Input
                   value={newMessage}

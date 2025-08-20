@@ -48,6 +48,7 @@ export interface AIProvider {
   id: number
   name: string
   provider_type: string
+  category: 'text' | 'image'
   config: Record<string, any>
   is_active: boolean
   last_tested?: string
@@ -57,6 +58,7 @@ export interface AIProvider {
 export interface AIProviderCreate {
   name: string
   provider_type: string
+  category: 'text' | 'image'
   config: Record<string, any>
 }
 

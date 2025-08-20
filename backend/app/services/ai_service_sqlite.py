@@ -44,19 +44,33 @@ class AIServiceSQLite:
         
         return payload
 
-    def get_active_provider(self, user_id: int, db: Session) -> Optional[AIProvider]:
-        """Get active AI provider for user from SQLite"""
+    def get_active_provider(self, user_id: int, db: Session, category: str = "text") -> Optional[AIProvider]:
+        """Get active AI provider for user from SQLite by category"""
         return db.query(AIProvider).filter(
             AIProvider.user_id == user_id,
+            AIProvider.category == category,
             AIProvider.is_active == True
         ).first()
+    
+    def get_provider_by_id(self, provider_id: int, user_id: int, db: Session) -> Optional[AIProvider]:
+        """Get specific AI provider by ID (must belong to user)"""
+        return db.query(AIProvider).filter(
+            AIProvider.id == provider_id,
+            AIProvider.user_id == user_id
+        ).first()
 
-    async def chat_stream(self, user_id: int, messages: List[Dict[str, str]], db: Session) -> AsyncGenerator[Dict[str, Any], None]:
-        """Stream chat responses using httpx"""
-        provider = self.get_active_provider(user_id, db)
-        if not provider:
-            yield {"error": "No active AI provider configured"}
-            return
+    async def chat_stream(self, user_id: int, messages: List[Dict[str, str]], db: Session, model_id: int = None) -> AsyncGenerator[Dict[str, Any], None]:
+        """Stream chat responses using httpx with optional model selection"""
+        if model_id:
+            provider = self.get_provider_by_id(model_id, user_id, db)
+            if not provider:
+                yield {"error": f"AI provider {model_id} not found or not accessible"}
+                return
+        else:
+            provider = self.get_active_provider(user_id, db, "text")
+            if not provider:
+                yield {"error": "No active text AI provider configured"}
+                return
         
         try:
             config = provider.config
@@ -393,14 +407,45 @@ class AIServiceSQLite:
         """Test AI provider connection using httpx"""
         try:
             config = provider.config
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            base_url = config.get('base_url', 'https://api.openai.com')
+            endpoint = f"{base_url}/v1/chat/completions"
+            
+            # For imageOCR providers, use vision model format with test image
+            if provider.provider_type == "imageOCR":
+                test_messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": "https://goeastmandarin.com/wp-content/uploads/2023/06/nihao1-1024x576.jpg"
+                            },
+                            {
+                                "type": "text",
+                                "text": "请识别这张图片中的文字内容"
+                            }
+                        ]
+                    }
+                ]
+                test_model = config.get("model", "qwen-vl-max")
+                payload = {
+                    "model": test_model,
+                    "messages": test_messages,
+                    "max_tokens": 50
+                }
+            else:
+                test_messages = [{"role": "user", "content": "Hello, please respond with 'OK'"}]
+                test_model = config.get("model", "gpt-3.5-turbo")
+                payload = {
+                    "model": test_model,
+                    "messages": test_messages,
+                    "max_tokens": 20
+                }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
-                    json={
-                        "model": config.get("model", "gpt-3.5-turbo"),
-                        "messages": [{"role": "user", "content": "Hello, please respond with 'OK'"}],
-                        "max_tokens": 10
-                    },
+                    endpoint,
+                    json=payload,
                     headers={
                         "Authorization": f"Bearer {config.get('api_key', '')}",
                         "Content-Type": "application/json"
@@ -408,11 +453,20 @@ class AIServiceSQLite:
                 )
                 
                 if response.status_code == 200:
-                    return {
-                        "success": True,
-                        "message": "Provider connection successful",
-                        "response": "OK"
-                    }
+                    try:
+                        response_data = response.json()
+                        content = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        return {
+                            "success": True,
+                            "message": f"Provider connection successful. Model: {test_model}",
+                            "response": content.strip()
+                        }
+                    except Exception as parse_error:
+                        return {
+                            "success": True,
+                            "message": f"Provider connection successful (response parsing issue: {str(parse_error)})",
+                            "response": "Connection OK"
+                        }
                 else:
                     error_text = response.text
                     return {
@@ -521,5 +575,109 @@ class AIServiceSQLite:
             print(f"Title generation error: {e}")
             print(f"Full traceback: {traceback.format_exc()}")
             return "新对话"
+
+    def get_active_image_ocr_provider(self, user_id: int, db: Session) -> Optional[AIProvider]:
+        """Get active AI provider specifically for image OCR"""
+        return db.query(AIProvider).filter(
+            AIProvider.user_id == user_id,
+            AIProvider.is_active == True,
+            AIProvider.provider_type == "imageOCR"
+        ).first()
+
+    async def extract_text_from_image_ai(self, user_id: int, image_bytes: bytes, db: Session) -> str:
+        """
+        Extract text from image using AI-powered OCR (Qwen-OCR)
+        
+        Args:
+            user_id: User ID to get active OCR provider
+            image_bytes: Raw image bytes
+            db: Database session
+            
+        Returns:
+            Extracted text as string
+        """
+        provider = self.get_active_image_ocr_provider(user_id, db)
+        if not provider:
+            raise ValueError("No active AI OCR provider configured")
+        
+        try:
+            import base64
+            
+            # Convert image bytes to base64
+            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+            
+            # Build OCR prompt for Chinese/English text extraction
+            system_prompt = """你是一个专业的图像文字识别助手。请仔细分析用户上传的图片，提取其中的所有文字内容。
+
+要求：
+1. 识别图片中的所有中文和英文文字
+2. 保持原有的文字顺序和段落结构
+3. 对于表格或列表，尽量保持原有格式
+4. 忽略图片中的装饰性元素，只专注于文字内容
+5. 如果文字不清楚，请尽力推测并标注[不清楚]
+6. 直接输出提取的文字，不需要额外说明
+
+请开始识别图片中的文字内容："""
+            
+            config = provider.config
+            
+            # Build message with image
+            messages = [
+                {
+                    "role": "system", 
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "请识别这张图片中的所有文字内容："
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ]
+            
+            timeout = httpx.Timeout(connect=30.0, read=120.0, write=30.0, pool=30.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                # Build payload using user configuration
+                payload = self._build_payload(config, messages, stream=False, max_tokens_override=2000)
+                
+                headers = {
+                    "Authorization": f"Bearer {config.get('api_key', '')}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = await client.post(
+                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
+                    json=payload,
+                    headers=headers
+                )
+                
+                if response.status_code == 200:
+                    response_data = response.json()
+                    if "choices" in response_data and len(response_data["choices"]) > 0:
+                        message = response_data["choices"][0]["message"]
+                        extracted_text = message.get("content", "").strip()
+                        
+                        # Clean up the response
+                        if extracted_text:
+                            return extracted_text
+                        else:
+                            raise ValueError("AI OCR returned empty response")
+                    else:
+                        raise ValueError("Invalid response format from AI OCR")
+                else:
+                    error_text = response.text
+                    raise ValueError(f"AI OCR API error {response.status_code}: {error_text}")
+                    
+        except Exception as e:
+            raise ValueError(f"AI OCR failed: {str(e)}")
 
 ai_service_sqlite = AIServiceSQLite()

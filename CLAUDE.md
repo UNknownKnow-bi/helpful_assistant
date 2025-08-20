@@ -6,15 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The application provides AI-driven task management, configurable AI services, conversational AI interface, and personalized user profiling through psychology-based assessments.
 
-## Architecture
-
-The system follows a clean frontend/backend separation architecture:
-- **Frontend**: React-based SPA providing intuitive Chinese UI
-- **Backend**: FastAPI-based REST API server handling business logic
-- **Database**: SQLite for local persistent storage of user data, tasks, and profiles
-- **AI Integration**: Multi-provider support (DeepSeek, OpenAI-compatible APIs) via LangChain
-- **Browser Extension**: Optional component for task capture from web pages
-
 ## Tech Stack
 
 ### Frontend
@@ -32,6 +23,7 @@ The system follows a clean frontend/backend separation architecture:
 - HTTPx for direct AI provider integration and streaming
 - JWT for authentication
 - WebSockets for real-time streaming
+- 🆕 EasyOCR 1.7.2 for Chinese/English text extraction from images
 
 ### Database
 - SQLite for local relational database storage
@@ -89,7 +81,8 @@ helpful-assistant/
 │   │   ├── models/              # Pydantic models
 │   │   │   └── sqlite_models.py  # Request/response models
 │   │   ├── services/            # Business logic services
-│   │   │   └── ai_service_sqlite.py # AI provider integration
+│   │   │   ├── ai_service_sqlite.py # AI provider integration
+│   │   │   └── ocr_service.py    # 🆕 EasyOCR text extraction service
 │   │   ├── data/                # SQLite database files
 │   │   └── main.py              # FastAPI application entry
 └── CLAUDE.md                     # Project documentation
@@ -100,14 +93,23 @@ helpful-assistant/
 ### 1. AI Task Card Generation (任务卡片生成)
 
 **Functionality:**
-- Accept Chinese text input from users
+- Accept Chinese text input from users OR image uploads with OCR text extraction
 - Use AI to parse and extract task information using **Eisenhower Matrix** evaluation
 - Generate structured task cards with enhanced JSON schema(single or multi-task)
 - Enhanced task properties: title, content separation, urgency/importance matrix, participant tracking
 - Controlled by specific prompts to ensure consistent JSON output format
+- OCR Integration: EasyOCR-powered image text extraction with Chinese/English support
+
+**Input Methods:**
+1. Text Input: Direct Chinese text input in textarea
+2. 🆕 Image Upload with OCR: Two-step process for image-based task generation
+   - Supports JPG, PNG, JPEG formats (max 10MB)
+   - Chinese/English text recognition with EasyOCR
 
 **API Endpoints:**
 - `POST /api/tasks/generate` - Generate task card(s) from text (supports multi-task)
+- `POST /api/tasks/extract-text-from-image` - OCR text extraction from uploaded images
+- `POST /api/tasks/generate-from-image` - Direct image-to-task generation (legacy)
 - `GET /api/tasks` - List tasks with Eisenhower Matrix filtering
 - `GET /api/tasks/stats` - Get task statistics with matrix distribution
 - `GET /api/tasks/{task_id}` - Retrieve specific task
@@ -138,15 +140,20 @@ helpful-assistant/
 
 ### 2. AI Service Configuration (AI配置)
 
+**✅ ENHANCED: Model Categorization System (文本模型/图像模型)**
+
 **Functionality:**
-- Support multiple AI providers: DeepSeek, OpenAI-compatible APIs
-- **Full parameter configuration**: temperature, max_tokens, top_p, frequency_penalty, presence_penalty
-- Built-in testing functionality with simple "OK" response or ping tests
+- Support multiple AI providers: DeepSeek, OpenAI-compatible APIs, **🆕 Image OCR providers**
+- Built-in testing functionality with vision model testing for imageOCR providers
 - Persistent configuration storage in SQLite database with auto-loading
 - HTTPx-based direct AI provider integration for better performance
 - **Complete CRUD Operations**: Create, read, update, and delete AI provider configurations
 - **Parameter Validation**: Automatic max_tokens capping (≤8192) and parameter validation
 - **Extended Timeouts**: 5-minute timeout support for reasoning models
+- **Multi-Modal Support**: Vision model testing with sample image recognition for OCR providers
+- **🆕 Model Categorization**: Automatic categorization into "文本模型" (text) and "图像模型" (image) categories
+- **🆕 Multiple Active Models**: Support for one active text model AND one active image model simultaneously
+- **🆕 Dynamic Model Selection**: Real-time model switching during chat conversations
 
 **API Endpoints:**
 - `POST /api/ai-providers` - Add new AI provider configuration
@@ -154,15 +161,19 @@ helpful-assistant/
 - `PUT /api/ai-providers/{provider_id}` - Update provider config
 - `DELETE /api/ai-providers/{provider_id}` - Delete AI provider configuration
 - `POST /api/ai-providers/{provider_id}/test` - Test provider connection
-- `GET /api/ai-providers/active` - Get active provider configuration
+- `GET /api/ai-providers/active` - Get active text provider (backward compatibility)
+- **🆕 `GET /api/ai-providers/active/{category}`** - Get active provider by category (text/image)
+- **🆕 `GET /api/ai-providers/text-models`** - Get all available text models for chat selection
 
-**Enhanced Configuration Schema:**
+**Configuration Schema:**
 ```json
 {
   "provider_name": "string",
+  "provider_type": "openai|deepseek|imageOCR",  // 🆕 Added imageOCR type
+  "category": "text|image",  // 🆕 Auto-assigned based on provider_type
   "api_key": "string",
   "base_url": "string",
-  "model": "string",
+  "model": "string",  // For imageOCR: qwen-vl-max, qwen-vl-ocr-latest, gpt-4v, etc.
   "temperature": "number (0-2)",
   "max_tokens": "number (auto-capped ≤8192)",
   "top_p": "number (0-1)",
@@ -177,8 +188,18 @@ helpful-assistant/
 - **User Configuration Respect**: All AI services now use user's configured parameters instead of hardcoded values
 - **Model-Specific Support**: DeepSeek reasoning models automatically exclude unsupported parameters
 - **Validation & Safety**: Automatic parameter validation and API limit compliance
+- **🆕 Category-Based Activation**: Multiple models can be active simultaneously (one per category)
+- **🆕 Smart Auto-Categorization**: imageOCR providers → "image", others → "text"
+
+**🆕 Frontend UI Enhancements:**
+- **Categorized Display**: Models grouped by "文本模型" (blue) and "图像模型" (green) sections
+- **Model Counters**: Show count of models per category with visual indicators
+- **Real-time Model Selection**: Dropdown in chat interface for switching between text models
+- **Active Model Indicators**: Star (★) symbol shows currently active models
 
 ### 3. AI Chat Interface (AI问答界面)
+
+**✅ ENHANCED: Dynamic Model Selection**
 
 **Functionality:**
 - Independent chat interface as a separate page/module
@@ -192,6 +213,8 @@ helpful-assistant/
 - **🆕 Page Navigation Continuity**: Users can switch pages during AI responses without losing content
 - **🆕 Intelligent Response Recovery**: Automatic detection and display of interrupted responses when returning to chat
 - **🆕 Manual Stream Control**: Users can manually stop AI responses mid-stream with dedicated stop button
+- **🆕 Dynamic Model Selection**: Real-time dropdown to switch between different text models during conversation
+- **🆕 Model-specific WebSocket**: Support for `model_id` parameter in WebSocket messages
 
 **API Endpoints:**
 - `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming with background task management
@@ -216,6 +239,15 @@ helpful-assistant/
 }
 ```
 
+**🆕 WebSocket Message Format (Enhanced):**
+```json
+{
+  "message": "string",
+  "user_id": "number",
+  "model_id": "number|null"  // Optional AI provider ID for model selection
+}
+```
+
 **Chat Session Management:**
 - `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
 - `PUT /api/chat/sessions/{session_id}/title` - Manual session renaming
@@ -231,36 +263,8 @@ helpful-assistant/
 - **Status Tracking**: Three message states: `streaming` (in progress), `completed` (finished), `interrupted` (disconnected)
 - **Visual Indicators**: UI shows streaming status with animated indicators and interruption warnings
 
-**🔧 Technical Implementation:**
-```python
-# Backend: Background Chat Service (app/services/background_chat_service.py)
-class BackgroundChatService:
-    # Tracks running AI tasks per session
-    running_tasks: Dict[int, asyncio.Task] = {}
-    # Tracks active WebSocket connections per session
-    active_connections: Dict[int, Set] = {}
-    
-    async def start_background_chat():
-        # Creates background task that persists beyond WebSocket lifecycle
-        task = asyncio.create_task(self._background_chat_worker())
-        
-    async def stop_session_task(session_id: int):
-        # Manually cancel running AI task for a session
-        # Updates database to mark messages as interrupted
-        # Broadcasts stop notification to all connected clients
-        
-    async def _background_chat_worker():
-        # Processes AI responses and saves to SQLite in real-time
-        # Broadcasts to all active connections via WebSocket
-        # Continues running even when connections disconnect
-        # Handles cancellation gracefully with proper cleanup
-```
 
 **🛑 Manual Stop Functionality (手动停止功能):**
-
-**Two Interrupt Scenarios:**
-1. **Automatic Interruption**: Page shutdown, navigation, or WebSocket disconnection
-2. **🆕 Manual User Stop**: User clicks stop button during AI response streaming
 
 **Stop Button Implementation:**
 - **UI Behavior**: Send button transforms into red stop button during streaming
@@ -280,7 +284,7 @@ class BackgroundChatService:
 - **Error Recovery**: Proper fallback handling if stop request fails
 - **Immediate Response**: UI updates instantly without waiting for server confirmation
 
-### 3.1. AI Response Processing (AI响应处理)
+### 3.1. AI Response Processing (AI响应处理)--for deepseek
 
 **Regular Models Response Format:**
 ```json
@@ -396,7 +400,6 @@ title = final_answer.strip('"').strip("'").strip()
   
   // Relationships
   "work_relationships": "WorkRelationship[]",
-  
   "created_at": "datetime",
   "updated_at": "datetime"
 }
@@ -418,9 +421,47 @@ title = final_answer.strip('"').strip("'").strip()
 - **BigFivePersonality**: Interactive tag management system with color-coded dimensions
 - **WorkRelationshipCards**: Dynamic card-based colleague management with statistics
 
+### 5. 🆕 OCR Image-to-Task Generation (图片识别任务生成)
+
+**✅ FULLY IMPLEMENTED** - Complete OCR integration with dual-mode support: Local EasyOCR + Cloud AI OCR.
+
+EasyOCR
+- **Two-Step Workflow**: Upload → Preview extracted text → Generate tasks with user confirmation
+- **Editable Preview**: Users can modify OCR results before task generation
+- **🆕 OCR Method Display**: Shows which OCR method was used (AI OCR, EasyOCR, or fallback)
+- **Error Handling**: Graceful handling of OCR failures, SSL issues, and automatic fallback mechanisms
+
+**🆕 AI OCR Configuration:**
+- **Provider Type**: `imageOCR` in AI providers configuration
+- **Supported Models**: Vision-language models that support image input (qwen-vl-max, qwen-vl-ocr-latest, gpt-4v, etc.)
+- **Base URL Example**: `https://dashscope.aliyuncs.com/compatible-mode/v1` (for Qwen)
+- **Message Format**: Multi-modal message format with `image_url` and `text` content types
+
+*API Endpoints:*
+- `POST /api/tasks/extract-text-from-image` - OCR text extraction with dual-mode support
+  - Returns: `{"success": bool, "extracted_text": str, "message": str, "ocr_method": str}`
+- `POST /api/tasks/generate-from-image` - Legacy direct image-to-task generation
+
+**🆕 OCR Provider Management:**
+- **AI Provider Configuration**: Configure imageOCR providers through AI Config interface
+- **Testing**: Test vision models with sample image recognition
+- **Activation**: Set imageOCR provider as active to enable AI-powered OCR
+
+*Frontend Components:*
+```typescript
+// TaskGenerationForm.tsx - Enhanced with dual input modes
+const [inputMode, setInputMode] = useState<'text' | 'image'>('text')
+const [imageStep, setImageStep] = useState<'upload' | 'preview'>('upload')
+const [extractedText, setExtractedText] = useState('')
+
+// Two-step image workflow:
+// 1. handleExtractText() - Upload image → OCR extraction
+// 2. handleGenerate() - Preview text → AI task generation
+```
+
 ## Data Models
 
-### Users
+### Users (✅ UPDATED: Multiple Active Providers)
 ```python
 class User(BaseModel):
     id: int
@@ -428,7 +469,8 @@ class User(BaseModel):
     username: str
     created_at: datetime
     profile_setup_completed: bool = False
-    active_ai_provider_id: int | None = None
+    active_text_provider_id: int | None = None   # 🆕 Active text model
+    active_image_provider_id: int | None = None  # 🆕 Active image model
 ```
 
 ### Tasks (Enhanced with Eisenhower Matrix)
@@ -450,13 +492,14 @@ class Task(BaseModel):
     updated_at: datetime
 ```
 
-### AI Providers
+### AI Providers (✅ UPDATED: Category Support)
 ```python
 class AIProvider(BaseModel):
     id: int
     user_id: int
     name: str
-    provider_type: str  # "openai", "deepseek", etc.
+    provider_type: str  # "openai", "deepseek", "imageOCR"
+    category: str       # 🆕 "text" | "image" - Auto-assigned based on provider_type
     config: Dict[str, Any]
     is_active: bool
     last_tested: datetime | None
@@ -505,9 +548,6 @@ class WorkRelationship(BaseModel):
 
 ## Implementation Status
 
-### ✅ Latest Updates (January 2025)
-
-
 ### 🔄 Current Architecture
 All core foundation components are operational with:
 - FastAPI backend serving REST APIs and WebSocket connections
@@ -515,16 +555,19 @@ All core foundation components are operational with:
 - SQLite database with proper relational data models (fully migrated from MongoDB)
 - HTTPx-based AI service integration (migrated from LangChain for better control)
 - WebSocket streaming for real-time chat functionality with SQLite persistence
+- **🆕 EasyOCR integration** for image-based task generation with Chinese/English support
+- **✅ AI Model Categorization System** with support for multiple active providers and dynamic model selection
 
 ## Development Phases
 
 1. **Foundation Setup** (Week 1): ✅ **COMPLETED** - FastAPI backend setup, database models, authentication
-2. **AI Service Layer** (Week 2): ✅ **COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration, full CRUD operations
-3. **Task Generation** (Week 3): ✅ **COMPLETED** - Full AI-powered multi-task generation, CRUD operations, UI integration
-4. **Chat Interface** (Week 4): ✅ **COMPLETED** - Real-time chat, WebSocket streaming, thinking blocks, SQLite persistence
+2. **AI Service Layer** (Week 2): ✅ **COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration, full CRUD operations, **✅ Model categorization system**
+3. **Task Generation** (Week 3): ✅ **COMPLETED** - Full AI-powered multi-task generation, CRUD operations, UI integration, **🆕 EasyOCR image support**
+4. **Chat Interface** (Week 4): ✅ **COMPLETED** - Real-time chat, WebSocket streaming, thinking blocks, SQLite persistence, **✅ Dynamic model selection**
 5. **User Profiling** (Week 5): ⏳ **PENDING** - Questionnaire system, analysis engine, difficulty estimation
-6. **Frontend Integration** (Week 6): ✅ **COMPLETED** - Complete UI with task management, chat integration, responsive design
+6. **Frontend Integration** (Week 6): ✅ **COMPLETED** - Complete UI with task management, chat integration, responsive design, **✅ Categorized AI Config interface**
 7. **Testing & Polish** (Week 7-8): ⏳ **PENDING** - End-to-end testing, performance optimization, deployment
+
 
 ## Next Priority Tasks
 
@@ -547,4 +590,3 @@ All core foundation components are operational with:
    - Performance optimization for large-scale task management
    - Enhanced error handling and user feedback systems
    - Deployment preparation and production optimization
-- to memorize

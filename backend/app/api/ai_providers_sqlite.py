@@ -27,11 +27,17 @@ async def create_ai_provider(
     db: Session = Depends(get_db_sync)
 ):
     """Create a new AI provider configuration"""
+    # Auto-set category based on provider_type if not provided
+    category = provider_create.category
+    if not category:
+        category = "image" if provider_create.provider_type == "imageOCR" else "text"
+    
     # Create new AI provider
     db_provider = SQLiteAIProvider(
         user_id=current_user.id,
         name=provider_create.name,
         provider_type=provider_create.provider_type,
+        category=category,
         config=provider_create.config,
         is_active=False,
         created_at=datetime.utcnow()
@@ -45,6 +51,7 @@ async def create_ai_provider(
         id=db_provider.id,
         name=db_provider.name,
         provider_type=db_provider.provider_type,
+        category=db_provider.category,
         config=db_provider.config,
         is_active=db_provider.is_active,
         last_tested=db_provider.last_tested,
@@ -66,6 +73,7 @@ async def get_ai_providers(
             id=provider.id,
             name=provider.name,
             provider_type=provider.provider_type,
+            category=provider.category,
             config=provider.config,
             is_active=provider.is_active,
             last_tested=provider.last_tested,
@@ -94,17 +102,27 @@ async def update_ai_provider(
     # Update fields
     update_data = provider_update.dict(exclude_unset=True)
     
-    # If setting as active, deactivate others
+    # If setting as active, deactivate others in same category
     if update_data.get("is_active", False):
+        provider_category = db_provider.category
+        
+        # Deactivate other providers in the same category
         db.query(SQLiteAIProvider).filter(
-            SQLiteAIProvider.user_id == current_user.id
+            SQLiteAIProvider.user_id == current_user.id,
+            SQLiteAIProvider.category == provider_category,
+            SQLiteAIProvider.id != provider_id
         ).update({"is_active": False})
         
-        # Update user's active provider
+        # Update user's active provider for this category
         from app.database.sqlite_models import User as SQLiteUser
-        db.query(SQLiteUser).filter(
-            SQLiteUser.id == current_user.id
-        ).update({"active_ai_provider_id": provider_id})
+        if provider_category == "text":
+            db.query(SQLiteUser).filter(
+                SQLiteUser.id == current_user.id
+            ).update({"active_text_provider_id": provider_id})
+        elif provider_category == "image":
+            db.query(SQLiteUser).filter(
+                SQLiteUser.id == current_user.id
+            ).update({"active_image_provider_id": provider_id})
     
     # Apply updates
     for field, value in update_data.items():
@@ -117,6 +135,7 @@ async def update_ai_provider(
         id=db_provider.id,
         name=db_provider.name,
         provider_type=db_provider.provider_type,
+        category=db_provider.category,
         config=db_provider.config,
         is_active=db_provider.is_active,
         last_tested=db_provider.last_tested,
@@ -176,12 +195,17 @@ async def delete_ai_provider(
     if not db_provider:
         raise HTTPException(status_code=404, detail="AI provider not found")
     
-    # If this was the active provider, update user's active provider
+    # If this was the active provider, update user's active provider for this category
     if db_provider.is_active:
         from app.database.sqlite_models import User as SQLiteUser
-        db.query(SQLiteUser).filter(
-            SQLiteUser.id == current_user.id
-        ).update({"active_ai_provider_id": None})
+        if db_provider.category == "text":
+            db.query(SQLiteUser).filter(
+                SQLiteUser.id == current_user.id
+            ).update({"active_text_provider_id": None})
+        elif db_provider.category == "image":
+            db.query(SQLiteUser).filter(
+                SQLiteUser.id == current_user.id
+            ).update({"active_image_provider_id": None})
     
     # Delete the provider
     db.delete(db_provider)
@@ -189,26 +213,65 @@ async def delete_ai_provider(
     
     return {"message": "AI provider deleted successfully"}
 
-@router.get("/active", response_model=AIProviderResponse)
-async def get_active_provider(
+@router.get("/active/{category}", response_model=AIProviderResponse)
+async def get_active_provider_by_category(
+    category: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db_sync)
 ):
-    """Get the active AI provider for the current user"""
+    """Get the active AI provider for a specific category"""
+    if category not in ["text", "image"]:
+        raise HTTPException(status_code=400, detail="Invalid category. Must be 'text' or 'image'")
+    
     db_provider = db.query(SQLiteAIProvider).filter(
         SQLiteAIProvider.user_id == current_user.id,
+        SQLiteAIProvider.category == category,
         SQLiteAIProvider.is_active == True
     ).first()
     
     if not db_provider:
-        raise HTTPException(status_code=404, detail="No active AI provider found")
+        raise HTTPException(status_code=404, detail=f"No active {category} AI provider found")
     
     return AIProviderResponse(
         id=db_provider.id,
         name=db_provider.name,
         provider_type=db_provider.provider_type,
+        category=db_provider.category,
         config=db_provider.config,
         is_active=db_provider.is_active,
         last_tested=db_provider.last_tested,
         created_at=db_provider.created_at
     )
+
+@router.get("/text-models", response_model=List[AIProviderResponse])
+async def get_available_text_models(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_sync)
+):
+    """Get all available text models for chat selection"""
+    providers = db.query(SQLiteAIProvider).filter(
+        SQLiteAIProvider.user_id == current_user.id,
+        SQLiteAIProvider.category == "text"
+    ).all()
+    
+    return [
+        AIProviderResponse(
+            id=provider.id,
+            name=provider.name,
+            provider_type=provider.provider_type,
+            category=provider.category,
+            config=provider.config,
+            is_active=provider.is_active,
+            last_tested=provider.last_tested,
+            created_at=provider.created_at
+        )
+        for provider in providers
+    ]
+
+@router.get("/active", response_model=AIProviderResponse)
+async def get_active_provider(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_sync)
+):
+    """Get the active text AI provider for backward compatibility"""
+    return await get_active_provider_by_category("text", current_user, db)

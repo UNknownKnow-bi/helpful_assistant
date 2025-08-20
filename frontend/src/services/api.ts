@@ -67,8 +67,35 @@ export const authApi = {
 
 // Tasks API
 export const tasksApi = {
-  generateFromText: async (text: string): Promise<Task> => {
+  generateFromText: async (text: string): Promise<Task[]> => {
     const response = await api.post('/tasks/generate', { text })
+    return response.data
+  },
+  
+  extractTextFromImage: async (file: File): Promise<{
+    success: boolean
+    extracted_text: string
+    message: string
+    ocr_method?: string
+  }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/tasks/extract-text-from-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  
+  generateFromImage: async (file: File): Promise<Task[]> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/tasks/generate-from-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
     return response.data
   },
   
@@ -130,6 +157,11 @@ export const aiProvidersApi = {
   
   getActive: async (): Promise<AIProvider> => {
     const response = await api.get('/ai-providers/active')
+    return response.data
+  },
+  
+  getTextModels: async (): Promise<AIProvider[]> => {
+    const response = await api.get('/ai-providers/text-models')
     return response.data
   },
 }
