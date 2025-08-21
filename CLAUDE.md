@@ -260,7 +260,6 @@ title = final_answer.strip('"').strip("'").strip()
 - **Basic Information Management**: Name, work nickname, gender-inclusive options, job type/level, management role
 - **Big Five Personality Model**: Interactive tag-based personality assessment with 5 psychological dimensions
 - **Work Relationship Management**: Dynamic colleague relationship tracking with hierarchical roles
-- **Profile Summary**: Structured overview of user characteristics for AI personalization
 - **Real-time Updates**: Immediate database persistence with optimistic UI updates
 **👤 API Reference:** See [User Profile API Documentation](backend/API_DOCUMENTATION.md#user-profile-apis) for complete endpoint details, Big Five personality schemas, and work relationship management examples.
 
@@ -317,7 +316,30 @@ EasyOCR
 7. **Testing & Polish** (Week 7-8): ⏳ **PENDING** - End-to-end testing, performance optimization, deployment
 
 
-## ✅ Recent Updates - Multiple Active Model Support
+## ✅ Recent Updates - Token Authentication Enhancement
+
+**✅ COMPLETED (2025-08-21): Enhanced Token Authentication System with 24-Hour Expiry**
+
+**🔐 Token Management Improvements:**
+- **Extended Token Validity**: Token expiration time increased from 30 minutes to 24 hours (1440 minutes)
+- **Automatic Token Refresh**: Smart API interceptor automatically refreshes expired tokens without user intervention
+- **Refresh Endpoint**: New `POST /auth/refresh` endpoint for seamless token renewal
+- **Intelligent Error Handling**: Only redirects to login when token refresh fails, maintaining user session continuity
+- **Anti-Loop Protection**: Prevents infinite refresh attempts with retry flag mechanism
+
+**Implementation Details:**
+- **Backend Changes**:
+  - `config.py`: Updated `access_token_expire_minutes` from 30 to 1440
+  - `auth_sqlite.py`: Added `/auth/refresh` endpoint with proper error handling
+- **Frontend Changes**:
+  - `api.ts`: Enhanced response interceptor with automatic token refresh logic
+  - `authStore.ts`: Added `refreshToken` method for state management
+  - Seamless user experience with transparent token maintenance
+
+**User Experience Benefits:**
+- Users stay logged in for 24 hours without interruption
+- Automatic background token refresh prevents unexpected logouts
+- Reduced login friction and improved productivity workflow
 
 **✅ COMPLETED (2025-08-20): Enhanced AI Model Selection System**
 
@@ -342,4 +364,6 @@ EasyOCR
    - Performance optimization for large-scale task management
    - Enhanced error handling and user feedback systems
    - Deployment preparation and production optimization
+- to memorize
+- to memorize
 - to memorize

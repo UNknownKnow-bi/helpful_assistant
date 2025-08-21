@@ -14,7 +14,6 @@ import type {
   UserProfile,
   UserProfileCreate,
   UserProfileUpdate,
-  UserProfileSummary,
   WorkRelationship,
   WorkRelationshipCreate,
   WorkRelationshipUpdate
@@ -35,14 +34,42 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor to handle auth errors
+// Response interceptor to handle auth errors with token refresh
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+      
+      try {
+        // Try to refresh token
+        const refreshResponse = await api.post('/auth/refresh')
+        const newToken = refreshResponse.data.access_token
+        
+        // Update stored token
+        localStorage.setItem('access_token', newToken)
+        
+        // Update the original request with new token
+        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        
+        // Retry the original request
+        return api(originalRequest)
+      } catch (refreshError) {
+        // If refresh fails, redirect to login
+        localStorage.removeItem('access_token')
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
+      }
+    }
+    
+    // For other errors or if refresh already tried, just reject
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token')
       window.location.href = '/login'
     }
+    
     return Promise.reject(error)
   }
 )
@@ -61,6 +88,11 @@ export const authApi = {
   
   getCurrentUser: async (): Promise<User> => {
     const response = await api.get('/auth/me')
+    return response.data
+  },
+  
+  refreshToken: async (): Promise<AuthResponse> => {
+    const response = await api.post('/auth/refresh')
     return response.data
   },
 }
@@ -218,22 +250,17 @@ export const chatApi = {
 // User Profile API
 export const userProfileApi = {
   get: async (): Promise<UserProfile> => {
-    const response = await api.get('/profile')
+    const response = await api.get('/profile/')
     return response.data
   },
   
   createOrUpdate: async (data: UserProfileCreate): Promise<UserProfile> => {
-    const response = await api.post('/profile', data)
+    const response = await api.post('/profile/', data)
     return response.data
   },
   
   update: async (data: UserProfileUpdate): Promise<UserProfile> => {
-    const response = await api.put('/profile', data)
-    return response.data
-  },
-  
-  getSummary: async (): Promise<UserProfileSummary> => {
-    const response = await api.get('/profile/summary')
+    const response = await api.put('/profile/', data)
     return response.data
   },
   

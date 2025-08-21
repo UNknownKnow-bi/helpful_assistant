@@ -11,11 +11,17 @@ http://localhost:8000
 
 ## Authentication
 
-The API uses JWT (JSON Web Token) authentication. Include the token in the Authorization header:
+The API uses JWT (JSON Web Token) authentication with 24-hour token validity. Include the token in the Authorization header:
 
 ```
 Authorization: Bearer <your_jwt_token>
 ```
+
+**Token Management:**
+- Token validity: 24 hours (1440 minutes)
+- Automatic refresh: Frontend handles token renewal transparently
+- Manual refresh: Use `POST /api/auth/refresh` endpoint
+- Session continuity: Users stay logged in without interruption
 
 ---
 
@@ -61,7 +67,6 @@ Authorization: Bearer <your_jwt_token>
 - `GET /api/profile` - Get user profile
 - `POST /api/profile` - Create/update user profile
 - `PUT /api/profile` - Update user profile
-- `GET /api/profile/summary` - Get profile summary
 - `PUT /api/profile/personality/{dimension}` - Update personality dimension
 - `GET /api/profile/relationships` - Get work relationships
 - `POST /api/profile/relationships` - Create work relationship
@@ -120,6 +125,35 @@ Authenticate user and receive JWT token.
   }
 }
 ```
+
+#### POST /api/auth/refresh
+Refresh the current user's JWT token to extend session validity.
+
+**Headers:**
+```
+Authorization: Bearer <current_jwt_token>
+```
+
+**Request Body:**
+None required - uses current authenticated user
+
+**Response:**
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "token_type": "bearer",
+  "message": "Token refreshed successfully"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: Current token is invalid or expired
+- `500 Internal Server Error`: Token refresh failed
+
+**Notes:**
+- Token validity extended to 24 hours (1440 minutes)
+- Frontend automatically calls this endpoint when receiving 401 errors
+- Used for maintaining user sessions without requiring re-login
 
 ### AI Provider Management APIs
 

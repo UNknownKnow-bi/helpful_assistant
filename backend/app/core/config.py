@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     database_name: str = "helpful_assistant"
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 1440  # 24 hours = 24 * 60 minutes
     
     class Config:
         env_file = ".env"
