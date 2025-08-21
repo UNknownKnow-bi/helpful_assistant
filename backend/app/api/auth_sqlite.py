@@ -9,7 +9,7 @@ from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=dict)
 async def register(user_create: UserCreate):
@@ -114,6 +114,7 @@ async def get_current_user_info(
     return UserResponse(
         id=current_user.id,
         username=current_user.username,
-        created_at=current_user.created_at.isoformat(),
-        active_ai_provider_id=current_user.active_ai_provider_id
+        created_at=current_user.created_at,
+        active_text_provider_id=current_user.active_text_provider_id,
+        active_image_provider_id=current_user.active_image_provider_id
     )

@@ -88,6 +88,29 @@ helpful-assistant/
 └── CLAUDE.md                     # Project documentation
 ```
 
+## API Documentation
+
+### 📖 Documentation Files
+- **[Complete API Documentation](backend/API_DOCUMENTATION.md)** - Comprehensive guide with examples and workflows
+- **[Auto-generated Endpoint Reference](backend/docs/api/endpoints.md)** - Complete endpoint documentation
+- **[Data Models Reference](backend/docs/api/schemas.md)** - All API schemas and data structures
+- **[API Documentation Index](backend/docs/api/README.md)** - Documentation overview and quick links
+- **[OpenAPI Specification](backend/docs/api/openapi.json)** - Raw OpenAPI 3.0 JSON schema
+
+### 🌐 Interactive Documentation (Server Running)
+- **[Swagger UI](http://localhost:8000/docs)** - Interactive API explorer and testing interface
+- **[ReDoc](http://localhost:8000/redoc)** - Clean, responsive API documentation
+- **[OpenAPI JSON Endpoint](http://localhost:8000/openapi.json)** - Live specification endpoint
+
+### 🛠️ Documentation Tools
+```bash
+# Generate/update API documentation
+cd backend && python3 generate_api_docs.py
+
+# Open documentation in browser
+cd backend && python3 open_docs.py
+```
+
 ## Core Features
 
 ### 1. AI Task Card Generation (任务卡片生成)
@@ -100,44 +123,7 @@ helpful-assistant/
 - Controlled by specific prompts to ensure consistent JSON output format
 - OCR Integration: EasyOCR-powered image text extraction with Chinese/English support
 
-**Input Methods:**
-1. Text Input: Direct Chinese text input in textarea
-2. 🆕 Image Upload with OCR: Two-step process for image-based task generation
-   - Supports JPG, PNG, JPEG formats (max 10MB)
-   - Chinese/English text recognition with EasyOCR
-
-**API Endpoints:**
-- `POST /api/tasks/generate` - Generate task card(s) from text (supports multi-task)
-- `POST /api/tasks/extract-text-from-image` - OCR text extraction from uploaded images
-- `POST /api/tasks/generate-from-image` - Direct image-to-task generation (legacy)
-- `GET /api/tasks` - List tasks with Eisenhower Matrix filtering
-- `GET /api/tasks/stats` - Get task statistics with matrix distribution
-- `GET /api/tasks/{task_id}` - Retrieve specific task
-- `PUT /api/tasks/{task_id}` - Update task information
-- `DELETE /api/tasks/{task_id}` - Delete task
-
-**JSON Schema:**
-```json
-{
-  "title": "string (max 8 chars)",           // Brief bold summary
-  "content": "string",                      // Detailed task description
-  "deadline": "ISO datetime",
-  "assignee": "string",                     // 提出人 (who assigned the task)
-  "participant": "string (default: '你')",   // 参与人 (who participates)
-  "urgency": "low|high",                    // 紧迫性 (time-sensitive)
-  "importance": "low|high",                 // 重要性 (goal contribution)
-  "difficulty": "number (1-10)",
-  "source": "manual|extension|ai_generated",
-  "status": "pending|in_progress|completed"
-}
-```
-
-**Eisenhower Matrix Categories:**
-- **Urgent + Important**: Do First (immediate action)
-- **Urgent + Not Important**: Schedule (time-sensitive but low impact)
-- **Not Urgent + Important**: Delegate (important for long-term goals)
-- **Not Urgent + Not Important**: Eliminate (low priority)
-
+**📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details, request/response schemas, and usage examples.
 ### 2. AI Service Configuration (AI配置)
 
 **✅ ENHANCED: Model Categorization System (文本模型/图像模型)**
@@ -152,51 +138,10 @@ helpful-assistant/
 - **Extended Timeouts**: 5-minute timeout support for reasoning models
 - **Multi-Modal Support**: Vision model testing with sample image recognition for OCR providers
 - **🆕 Model Categorization**: Automatic categorization into "文本模型" (text) and "图像模型" (image) categories
-- **🆕 Multiple Active Models**: Support for one active text model AND one active image model simultaneously
+- **🆕 Multiple Active Models**: Support for MULTIPLE active models per category (multiple text models + multiple image models can all be active simultaneously)
 - **🆕 Dynamic Model Selection**: Real-time model switching during chat conversations
 
-**API Endpoints:**
-- `POST /api/ai-providers` - Add new AI provider configuration
-- `GET /api/ai-providers` - List configured providers
-- `PUT /api/ai-providers/{provider_id}` - Update provider config
-- `DELETE /api/ai-providers/{provider_id}` - Delete AI provider configuration
-- `POST /api/ai-providers/{provider_id}/test` - Test provider connection
-- `GET /api/ai-providers/active` - Get active text provider (backward compatibility)
-- **🆕 `GET /api/ai-providers/active/{category}`** - Get active provider by category (text/image)
-- **🆕 `GET /api/ai-providers/text-models`** - Get all available text models for chat selection
-
-**Configuration Schema:**
-```json
-{
-  "provider_name": "string",
-  "provider_type": "openai|deepseek|imageOCR",  // 🆕 Added imageOCR type
-  "category": "text|image",  // 🆕 Auto-assigned based on provider_type
-  "api_key": "string",
-  "base_url": "string",
-  "model": "string",  // For imageOCR: qwen-vl-max, qwen-vl-ocr-latest, gpt-4v, etc.
-  "temperature": "number (0-2)",
-  "max_tokens": "number (auto-capped ≤8192)",
-  "top_p": "number (0-1)",
-  "frequency_penalty": "number (-2 to 2)",
-  "presence_penalty": "number (-2 to 2)",
-  "stream": "boolean",
-  "is_active": "boolean"
-}
-```
-
-**Parameter Handling:**
-- **User Configuration Respect**: All AI services now use user's configured parameters instead of hardcoded values
-- **Model-Specific Support**: DeepSeek reasoning models automatically exclude unsupported parameters
-- **Validation & Safety**: Automatic parameter validation and API limit compliance
-- **🆕 Category-Based Activation**: Multiple models can be active simultaneously (one per category)
-- **🆕 Smart Auto-Categorization**: imageOCR providers → "image", others → "text"
-
-**🆕 Frontend UI Enhancements:**
-- **Categorized Display**: Models grouped by "文本模型" (blue) and "图像模型" (green) sections
-- **Model Counters**: Show count of models per category with visual indicators
-- **Real-time Model Selection**: Dropdown in chat interface for switching between text models
-- **Active Model Indicators**: Star (★) symbol shows currently active models
-
+**🤖 API Reference:** See [AI Providers API Documentation](backend/API_DOCUMENTATION.md#ai-provider-management-apis) for complete endpoint details, configuration schemas, and testing examples.
 ### 3. AI Chat Interface (AI问答界面)
 
 **✅ ENHANCED: Dynamic Model Selection**
@@ -216,37 +161,7 @@ helpful-assistant/
 - **🆕 Dynamic Model Selection**: Real-time dropdown to switch between different text models during conversation
 - **🆕 Model-specific WebSocket**: Support for `model_id` parameter in WebSocket messages
 
-**API Endpoints:**
-- `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming with background task management
-- `POST /api/chat/sessions` - Create new chat session
-- `GET /api/chat/sessions` - List user's chat sessions
-- `GET /api/chat/sessions/{session_id}/messages` - Get chat history
-- `DELETE /api/chat/sessions/{session_id}` - Delete chat session
-- `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
-- `PUT /api/chat/sessions/{session_id}/title` - Manual session renaming
-- **🆕 `GET /api/chat/sessions/{session_id}/status`** - Check session streaming status and background tasks
-- **🆕 `POST /api/chat/sessions/{session_id}/stop`** - Manually stop ongoing AI streaming responses
-
-**Message Schema:**
-```json
-{
-  "role": "user|assistant",
-  "content": "string",
-  "thinking": "string|null",
-  "timestamp": "ISO datetime",
-  "token_usage": "object",
-  "streaming_status": "streaming|completed|interrupted"
-}
-```
-
-**🆕 WebSocket Message Format (Enhanced):**
-```json
-{
-  "message": "string",
-  "user_id": "number",
-  "model_id": "number|null"  // Optional AI provider ID for model selection
-}
-```
+**💬 API Reference:** See [Chat API Documentation](backend/API_DOCUMENTATION.md#chat-apis) for complete WebSocket usage, endpoint details, message schemas, and real-time streaming examples.
 
 **Chat Session Management:**
 - `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
@@ -347,73 +262,7 @@ title = final_answer.strip('"').strip("'").strip()
 - **Work Relationship Management**: Dynamic colleague relationship tracking with hierarchical roles
 - **Profile Summary**: Structured overview of user characteristics for AI personalization
 - **Real-time Updates**: Immediate database persistence with optimistic UI updates
-
-**Big Five Personality Dimensions (大五人格模型):**
-1. **经验开放性 (Openness)**: 对新事物、新想法的好奇心和想象力
-2. **尽责性 (Conscientiousness)**: 自律、有条理、可靠的程度 (最可靠的工作绩效指标)
-3. **外向性 (Extraversion)**: 从社交中获取能量的程度，热情、健谈
-4. **宜人性 (Agreeableness)**: 对他人友好、合作、有同情心的程度
-5. **神经质 (Neuroticism)**: 情绪的稳定性，感受负面情绪的倾向
-
-**Work Relationship Types:**
-- **下属** (Subordinate): Direct reports
-- **同级** (Peer): Colleagues at same level
-- **上级** (Superior): Direct manager/supervisor
-- **团队负责人** (Team Leader): Team lead or project manager
-- **公司老板** (Company Boss): Executive leadership
-
-**API Endpoints:**
-
-*User Profile Management:*
-- `GET /api/profile` - Get current user's profile
-- `POST /api/profile` - Create or update user profile
-- `PUT /api/profile` - Update user profile
-- `GET /api/profile/summary` - Get structured profile summary
-- `PUT /api/profile/personality/{dimension}` - Update specific Big Five dimension tags
-
-*Work Relationship Management:*
-- `GET /api/profile/relationships` - Get all work relationships
-- `POST /api/profile/relationships` - Create new work relationship
-- `PUT /api/profile/relationships/{id}` - Update work relationship
-- `DELETE /api/profile/relationships/{id}` - Delete work relationship
-
-**Profile Schema:**
-```json
-{
-  "id": "int",
-  "user_id": "int",
-  
-  // Basic Information
-  "name": "string (optional)",
-  "work_nickname": "string (optional)", 
-  "gender": "男|女|无性别|其他性别 (inclusive options)",
-  "job_type": "string (free text: '产品运营', '数据分析师')",
-  "job_level": "实习|初级|中级|高级",
-  "is_manager": "boolean",
-  
-  // Big Five Personality (tag arrays for each dimension)
-  "personality_openness": "string[] (经验开放性 tags)",
-  "personality_conscientiousness": "string[] (尽责性 tags)",
-  "personality_extraversion": "string[] (外向性 tags)", 
-  "personality_agreeableness": "string[] (宜人性 tags)",
-  "personality_neuroticism": "string[] (神经质 tags)",
-  
-  // Relationships
-  "work_relationships": "WorkRelationship[]",
-  "created_at": "datetime",
-  "updated_at": "datetime"
-}
-```
-**Work Relationship Schema:**
-```json
-{
-  "id": "int",
-  "user_profile_id": "int (foreign key)",
-  "coworker_name": "string",
-  "relationship_type": "下属|同级|上级|团队负责人|公司老板",
-  "created_at": "datetime"
-}
-```
+**👤 API Reference:** See [User Profile API Documentation](backend/API_DOCUMENTATION.md#user-profile-apis) for complete endpoint details, Big Five personality schemas, and work relationship management examples.
 
 **Frontend Components:**
 - **Profile Page** (`/profile`): Tabbed interface with Basic Info, Personality, and Relationships
@@ -435,129 +284,28 @@ EasyOCR
 - **Provider Type**: `imageOCR` in AI providers configuration
 - **Supported Models**: Vision-language models that support image input (qwen-vl-max, qwen-vl-ocr-latest, gpt-4v, etc.)
 - **Base URL Example**: `https://dashscope.aliyuncs.com/compatible-mode/v1` (for Qwen)
-- **Message Format**: Multi-modal message format with `image_url` and `text` content types
+- **✅ Base64 Image Encoding**: Automatically converts uploaded images to base64 format for API compatibility
+- **Message Format**: Multi-modal message format with proper `data:image/{format};base64,{base64_data}` URL structure
 
-*API Endpoints:*
-- `POST /api/tasks/extract-text-from-image` - OCR text extraction with dual-mode support
-  - Returns: `{"success": bool, "extracted_text": str, "message": str, "ocr_method": str}`
-- `POST /api/tasks/generate-from-image` - Legacy direct image-to-task generation
+**🆕 Image Processing Pipeline:**
+1. **File Upload**: Accept JPG, PNG, JPEG, BMP, TIFF, WEBP, HEIC formats (max 10MB)
+2. **Format Detection**: Use PIL/Pillow to detect actual image format
+3. **Base64 Conversion**: Convert image bytes to base64 string
+4. **Content-Type Mapping**: Map format to proper MIME type (image/jpeg, image/png, etc.)
+5. **API Call**: Send formatted data URL to vision-language model
 
-**🆕 OCR Provider Management:**
-- **AI Provider Configuration**: Configure imageOCR providers through AI Config interface
-- **Testing**: Test vision models with sample image recognition
-- **Activation**: Set imageOCR provider as active to enable AI-powered OCR
-
-*Frontend Components:*
-```typescript
-// TaskGenerationForm.tsx - Enhanced with dual input modes
-const [inputMode, setInputMode] = useState<'text' | 'image'>('text')
-const [imageStep, setImageStep] = useState<'upload' | 'preview'>('upload')
-const [extractedText, setExtractedText] = useState('')
-
-// Two-step image workflow:
-// 1. handleExtractText() - Upload image → OCR extraction
-// 2. handleGenerate() - Preview text → AI task generation
-```
+**🖼️ API Reference:** See [OCR API Documentation](backend/API_DOCUMENTATION.md#ocr-image-to-task-generation) for complete image processing endpoints, OCR configuration, and dual-mode extraction examples.
 
 ## Data Models
 
-### Users (✅ UPDATED: Multiple Active Providers)
-```python
-class User(BaseModel):
-    id: int
-    email: str
-    username: str
-    created_at: datetime
-    profile_setup_completed: bool = False
-    active_text_provider_id: int | None = None   # 🆕 Active text model
-    active_image_provider_id: int | None = None  # 🆕 Active image model
-```
+**🗂️ Schema Reference:** See [Data Models Documentation](backend/docs/api/schemas.md) for complete schema definitions and [API Documentation](backend/API_DOCUMENTATION.md) for detailed model descriptions with examples.
 
-### Tasks (Enhanced with Eisenhower Matrix)
-```python
-class Task(BaseModel):
-    id: int
-    user_id: int
-    title: str                    # Brief 8-word summary (bold display)
-    content: str                  # Detailed task description
-    deadline: datetime | None
-    assignee: str | None          # 提出人 (who assigned the task)
-    participant: str = "你"       # 参与人 (who participates)
-    urgency: str                  # "low" | "high" - 紧迫性 (time-sensitive)
-    importance: str               # "low" | "high" - 重要性 (goal contribution)
-    difficulty: int               # 1-10 scale
-    source: str                   # "manual" | "extension" | "ai_generated"
-    status: str                   # "pending" | "in_progress" | "completed"
-    created_at: datetime
-    updated_at: datetime
-```
-
-### AI Providers (✅ UPDATED: Category Support)
-```python
-class AIProvider(BaseModel):
-    id: int
-    user_id: int
-    name: str
-    provider_type: str  # "openai", "deepseek", "imageOCR"
-    category: str       # 🆕 "text" | "image" - Auto-assigned based on provider_type
-    config: Dict[str, Any]
-    is_active: bool
-    last_tested: datetime | None
-```
-
-### User Profiles (Enhanced with Big Five Personality Model)
-```python
-class UserProfile(BaseModel):
-    id: int
-    user_id: int
-    
-    # Basic Information
-    name: str | None = None
-    work_nickname: str | None = None
-    gender: str | None = None  # 男|女|无性别|其他性别
-    job_type: str | None = None  # Free text like '产品运营', '数据分析师'
-    job_level: str | None = None  # 实习|初级|中级|高级
-    is_manager: bool = False
-    
-    # Big Five Personality Model (tag arrays)
-    personality_openness: List[str] = []          # 经验开放性 tags
-    personality_conscientiousness: List[str] = [] # 尽责性 tags
-    personality_extraversion: List[str] = []      # 外向性 tags
-    personality_agreeableness: List[str] = []     # 宜人性 tags
-    personality_neuroticism: List[str] = []       # 神经质 tags
-    
-    # Work Relationships
-    work_relationships: List[WorkRelationship] = []
-    
-    # Legacy fields (for backward compatibility)
-    personality_assessment: Dict[str, Any] | None = None
-    work_context: Dict[str, Any] | None = None
-    ai_analysis: str | None = None
-    knowledge_base: List[Dict[str, Any]] | None = None
-    
-    created_at: datetime
-    updated_at: datetime
-
-class WorkRelationship(BaseModel):
-    id: int
-    user_profile_id: int
-    coworker_name: str                  # Colleague's name
-    relationship_type: str              # 下属|同级|上级|团队负责人|公司老板
-    created_at: datetime
-```
-
-## Implementation Status
-
-### 🔄 Current Architecture
-All core foundation components are operational with:
-- FastAPI backend serving REST APIs and WebSocket connections
-- React frontend with complete authentication flow
-- SQLite database with proper relational data models (fully migrated from MongoDB)
-- HTTPx-based AI service integration (migrated from LangChain for better control)
-- WebSocket streaming for real-time chat functionality with SQLite persistence
-- **🆕 EasyOCR integration** for image-based task generation with Chinese/English support
-- **✅ AI Model Categorization System** with support for multiple active providers and dynamic model selection
-
+**Key Models:**
+- **User & Authentication Models**: User registration, login, and profile management
+- **Task Models**: Task creation, Eisenhower Matrix classification, and CRUD operations
+- **AI Provider Models**: Multi-category provider configuration (text/image models)
+- **Chat Models**: Real-time messaging, session management, and WebSocket communication
+- **User Profile Models**: Big Five personality assessment and work relationship tracking
 ## Development Phases
 
 1. **Foundation Setup** (Week 1): ✅ **COMPLETED** - FastAPI backend setup, database models, authentication
@@ -568,6 +316,10 @@ All core foundation components are operational with:
 6. **Frontend Integration** (Week 6): ✅ **COMPLETED** - Complete UI with task management, chat integration, responsive design, **✅ Categorized AI Config interface**
 7. **Testing & Polish** (Week 7-8): ⏳ **PENDING** - End-to-end testing, performance optimization, deployment
 
+
+## ✅ Recent Updates - Multiple Active Model Support
+
+**✅ COMPLETED (2025-08-20): Enhanced AI Model Selection System**
 
 ## Next Priority Tasks
 
@@ -590,3 +342,4 @@ All core foundation components are operational with:
    - Performance optimization for large-scale task management
    - Enhanced error handling and user feedback systems
    - Deployment preparation and production optimization
+- to memorize

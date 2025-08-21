@@ -11,7 +11,7 @@ from app.models.sqlite_models import (
 )
 from app.core.auth_sqlite import get_current_user
 
-router = APIRouter(prefix="/profile", tags=["user-profile"])
+router = APIRouter(prefix="/profile", tags=["User Profile"])
 
 def get_db():
     """Get database session"""

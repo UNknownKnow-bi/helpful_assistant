@@ -14,10 +14,73 @@ async def lifespan(app: FastAPI):
     await disconnect_from_database()
 
 app = FastAPI(
-    title="Helpful Assistant API",
-    description="AI-powered intelligent assistant for Chinese knowledge workers",
-    version="1.0.0",
-    lifespan=lifespan
+    title="智时助手 (Cortex Assistant) API",
+    description="""
+    ## AI-powered intelligent assistant for Chinese knowledge workers
+
+    This API provides comprehensive functionality for:
+    
+    * **🤖 AI Provider Management** - Configure and manage multiple AI models (text/image)
+    * **📋 Task Management** - AI-powered task generation with Eisenhower Matrix
+    * **💬 Real-time Chat** - WebSocket-based chat with AI models and thinking visualization
+    * **👤 User Profiling** - Big Five personality model and work relationship management
+    * **🖼️ OCR Integration** - Extract text from images using EasyOCR and AI vision models
+    * **🔐 JWT Authentication** - Secure user authentication and authorization
+
+    ### Key Features:
+    - **Multi-modal AI Support**: Text generation, image OCR, and vision-language models
+    - **Real-time Streaming**: WebSocket-based chat with background task management
+    - **Personality-based Customization**: Big Five model for personalized AI interactions
+    - **Eisenhower Matrix**: Task prioritization with urgency/importance classification
+    - **Chinese Language Optimized**: Designed specifically for Chinese knowledge workers
+    """,
+    version="2.0.0",
+    lifespan=lifespan,
+    contact={
+        "name": "Cortex Assistant Team",
+        "url": "https://github.com/your-org/helpful-assistant",
+        "email": "support@cortex-assistant.com",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    servers=[
+        {
+            "url": "http://localhost:8000",
+            "description": "Development server"
+        },
+        {
+            "url": "https://api.cortex-assistant.com",
+            "description": "Production server"
+        }
+    ],
+    openapi_tags=[
+        {
+            "name": "Authentication",
+            "description": "User registration, login, and JWT token management",
+        },
+        {
+            "name": "AI Providers",
+            "description": "Configure and manage AI models (text/image categories)",
+        },
+        {
+            "name": "Tasks",
+            "description": "AI-powered task generation and management with Eisenhower Matrix",
+        },
+        {
+            "name": "Chat",
+            "description": "Real-time chat interface with WebSocket streaming",
+        },
+        {
+            "name": "User Profile",
+            "description": "User profiling with Big Five personality model and work relationships",
+        },
+        {
+            "name": "OCR",
+            "description": "Image text extraction using EasyOCR and AI vision models",
+        }
+    ]
 )
 
 # CORS middleware

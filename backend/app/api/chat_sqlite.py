@@ -11,7 +11,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["Chat"])
 
 # Pydantic models for requests/responses
 class ChatSessionCreate(BaseModel):

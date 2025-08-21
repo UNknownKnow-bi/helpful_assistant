@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from datetime import datetime
@@ -11,8 +11,9 @@ from app.models.sqlite_models import (
 )
 from app.core.auth_sqlite import get_current_user
 from app.services.ai_service_sqlite import ai_service_sqlite
+from app.services.ocr_service import ocr_service
 
-router = APIRouter()
+router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 def get_db():
     """Get database session"""
@@ -23,7 +24,7 @@ def get_db():
         db.close()
 
 # Task Statistics (before other routes to avoid conflicts)
-@router.get("/tasks/stats")
+@router.get("/stats")
 async def get_task_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -61,7 +62,7 @@ async def get_task_stats(
     }
 
 # Task CRUD Operations
-@router.post("/tasks", response_model=TaskResponse)
+@router.post("", response_model=TaskResponse)
 async def create_task(
     task: TaskCreate,
     current_user: User = Depends(get_current_user),
@@ -85,7 +86,7 @@ async def create_task(
     db.refresh(db_task)
     return db_task
 
-@router.get("/tasks", response_model=List[TaskResponse])
+@router.get("", response_model=List[TaskResponse])
 async def get_tasks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -106,7 +107,7 @@ async def get_tasks(
     tasks = query.order_by(TaskModel.created_at.desc()).all()
     return tasks
 
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
+@router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
     task_id: int,
     current_user: User = Depends(get_current_user),
@@ -125,7 +126,7 @@ async def get_task(
         )
     return task
 
-@router.put("/tasks/{task_id}", response_model=TaskResponse)
+@router.put("/{task_id}", response_model=TaskResponse)
 async def update_task(
     task_id: int,
     task_update: TaskUpdate,
@@ -154,7 +155,7 @@ async def update_task(
     db.refresh(task)
     return task
 
-@router.delete("/tasks/{task_id}")
+@router.delete("/{task_id}")
 async def delete_task(
     task_id: int,
     current_user: User = Depends(get_current_user),
@@ -177,7 +178,7 @@ async def delete_task(
     return {"message": "Task deleted successfully"}
 
 # AI-powered Task Generation
-@router.post("/tasks/generate", response_model=List[TaskResponse])
+@router.post("/generate", response_model=List[TaskResponse])
 async def generate_task_from_text(
     request: Dict[str, str],
     current_user: User = Depends(get_current_user),
@@ -237,5 +238,160 @@ async def generate_task_from_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate task: {str(e)}"
+        )
+
+# OCR Text Extraction Only (Preview Step)
+@router.post("/extract-text-from-image")
+async def extract_text_from_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Extract text from image using OCR (preview step before task generation)
+    Uses AI OCR if active imageOCR provider is configured, otherwise falls back to EasyOCR"""
+    
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (PNG, JPG, JPEG, etc.)"
+        )
+    
+    # Check file size (limit to 10MB)
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:  # 10MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image file size must be less than 10MB"
+        )
+    
+    try:
+        # Check if user has an active AI OCR provider
+        ai_ocr_provider = ai_service_sqlite.get_active_image_ocr_provider(current_user.id, db)
+        extracted_text = ""
+        ocr_method = ""
+        
+        if ai_ocr_provider:
+            # Use AI-powered OCR (Qwen-OCR)
+            try:
+                extracted_text = await ai_service_sqlite.extract_text_from_image_ai(
+                    current_user.id, file_content, db
+                )
+                ocr_method = "AI OCR"
+            except Exception as ai_error:
+                # Fallback to EasyOCR if AI OCR fails
+                print(f"AI OCR failed, falling back to EasyOCR: {ai_error}")
+                extracted_text = await ocr_service.extract_text_from_image(file_content)
+                ocr_method = "EasyOCR (AI OCR fallback)"
+        else:
+            # Use local EasyOCR
+            extracted_text = await ocr_service.extract_text_from_image(file_content)
+            ocr_method = "EasyOCR"
+        
+        if not extracted_text or not extracted_text.strip():
+            return {
+                "success": False,
+                "extracted_text": "",
+                "ocr_method": ocr_method,
+                "message": f"No text could be extracted from the image using {ocr_method}. Please ensure the image contains readable text."
+            }
+        
+        return {
+            "success": True,
+            "extracted_text": extracted_text,
+            "ocr_method": ocr_method,
+            "message": f"Text extracted successfully using {ocr_method}. Please review and confirm to generate tasks."
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to extract text from image: {str(e)}"
+        )
+
+# AI-powered Task Generation from Image (OCR)
+@router.post("/generate-from-image", response_model=List[TaskResponse])
+async def generate_task_from_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate task cards from image using OCR + AI (supports multiple tasks)"""
+    
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (PNG, JPG, JPEG, etc.)"
+        )
+    
+    # Check file size (limit to 10MB)
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:  # 10MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image file size must be less than 10MB"
+        )
+    
+    try:
+        # Extract text from image using OCR
+        extracted_text = await ocr_service.extract_text_from_image(file_content)
+        
+        if not extracted_text or not extracted_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No text could be extracted from the image. Please ensure the image contains readable text."
+            )
+        
+        # Use AI service to extract task information from OCR text (returns list)
+        tasks_data = await ai_service_sqlite.generate_task_from_text(
+            user_id=current_user.id,
+            text=extracted_text,
+            db=db
+        )
+        
+        # Create tasks from AI-generated data
+        created_tasks = []
+        for task_data in tasks_data:
+            db_task = TaskModel(
+                user_id=current_user.id,
+                title=task_data.get("title", extracted_text[:8] if len(extracted_text) <= 8 else extracted_text[:7] + "..."),
+                content=task_data.get("content", extracted_text),
+                deadline=task_data.get("deadline"),
+                assignee=task_data.get("assignee"),
+                participant=task_data.get("participant", "你"),
+                urgency=task_data.get("urgency", "low"),
+                importance=task_data.get("importance", "low"),
+                difficulty=task_data.get("difficulty", 5),
+                source="ai_generated"
+            )
+            
+            db.add(db_task)
+            db.flush()  # Flush to get the ID but don't commit yet
+            created_tasks.append(db_task)
+        
+        # Commit all tasks at once
+        db.commit()
+        
+        # Refresh all tasks to get updated data
+        for task in created_tasks:
+            db.refresh(task)
+            
+        return created_tasks
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate task from image: {str(e)}"
         )
 

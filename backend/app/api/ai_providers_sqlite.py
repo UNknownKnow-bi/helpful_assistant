@@ -9,7 +9,7 @@ from app.database.sqlite_connection import get_database
 from app.services.ai_service_sqlite import ai_service_sqlite
 from datetime import datetime
 
-router = APIRouter(prefix="/ai-providers", tags=["ai_providers"])
+router = APIRouter(prefix="/ai-providers", tags=["AI Providers"])
 
 def get_db_sync():
     """Get synchronous database session"""
@@ -102,27 +102,8 @@ async def update_ai_provider(
     # Update fields
     update_data = provider_update.dict(exclude_unset=True)
     
-    # If setting as active, deactivate others in same category
-    if update_data.get("is_active", False):
-        provider_category = db_provider.category
-        
-        # Deactivate other providers in the same category
-        db.query(SQLiteAIProvider).filter(
-            SQLiteAIProvider.user_id == current_user.id,
-            SQLiteAIProvider.category == provider_category,
-            SQLiteAIProvider.id != provider_id
-        ).update({"is_active": False})
-        
-        # Update user's active provider for this category
-        from app.database.sqlite_models import User as SQLiteUser
-        if provider_category == "text":
-            db.query(SQLiteUser).filter(
-                SQLiteUser.id == current_user.id
-            ).update({"active_text_provider_id": provider_id})
-        elif provider_category == "image":
-            db.query(SQLiteUser).filter(
-                SQLiteUser.id == current_user.id
-            ).update({"active_image_provider_id": provider_id})
+    # Allow multiple active models per category - no need to deactivate others
+    # Just update this provider's status without affecting others
     
     # Apply updates
     for field, value in update_data.items():
@@ -248,10 +229,11 @@ async def get_available_text_models(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db_sync)
 ):
-    """Get all available text models for chat selection"""
+    """Get all ACTIVE text models for chat selection"""
     providers = db.query(SQLiteAIProvider).filter(
         SQLiteAIProvider.user_id == current_user.id,
-        SQLiteAIProvider.category == "text"
+        SQLiteAIProvider.category == "text",
+        SQLiteAIProvider.is_active == True
     ).all()
     
     return [
