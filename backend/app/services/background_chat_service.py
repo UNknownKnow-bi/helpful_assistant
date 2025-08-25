@@ -47,7 +47,7 @@ class BackgroundChatService:
             for ws in disconnected:
                 self.active_connections[session_id].discard(ws)
     
-    async def start_background_chat(self, session_id: int, user_id: int, message_history: list, assistant_message_id: int):
+    async def start_background_chat(self, session_id: int, user_id: int, message_history: list, assistant_message_id: int, model_id: int = None):
         """Start AI chat as background task that continues even if WebSocket disconnects"""
         
         # Cancel any existing task for this session
@@ -56,7 +56,7 @@ class BackgroundChatService:
         
         # Create background task
         task = asyncio.create_task(
-            self._background_chat_worker(session_id, user_id, message_history, assistant_message_id)
+            self._background_chat_worker(session_id, user_id, message_history, assistant_message_id, model_id)
         )
         self.running_tasks[session_id] = task
         
@@ -144,7 +144,7 @@ class BackgroundChatService:
         logger.info(f"No active streaming found for session {session_id}")
         return False
 
-    async def _background_chat_worker(self, session_id: int, user_id: int, message_history: list, assistant_message_id: int):
+    async def _background_chat_worker(self, session_id: int, user_id: int, message_history: list, assistant_message_id: int, model_id: int = None):
         """Background worker that processes AI response and saves to database"""
         db = SessionLocal()
         try:
@@ -159,7 +159,7 @@ class BackgroundChatService:
             
             try:
                 # Stream AI response in background
-                async for chunk in ai_service_sqlite.chat_stream(user_id, message_history, db):
+                async for chunk in ai_service_sqlite.chat_stream(user_id, message_history, db, model_id):
                     # Check if task was cancelled
                     if asyncio.current_task().cancelled():
                         logger.info(f"Background task cancelled for session {session_id}")

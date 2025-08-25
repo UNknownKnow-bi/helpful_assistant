@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import timedelta
 from app.models.sqlite_models import UserCreate, UserLogin, UserResponse
 from app.database.sqlite_models import User
@@ -10,6 +11,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+security = HTTPBearer()
 
 @router.post("/register", response_model=dict)
 async def register(user_create: UserCreate):
@@ -121,17 +123,49 @@ async def get_current_user_info(
 
 @router.post("/refresh", response_model=dict)
 async def refresh_token(
-    current_user: User = Depends(get_current_user)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    """Refresh access token for current user"""
+    """Refresh access token - accepts expired tokens for renewal"""
+    database = get_database()
+    
     try:
+        # Try to decode the token even if expired
+        from jose import jwt, JWTError
+        from datetime import datetime
+        
+        payload = jwt.decode(
+            credentials.credentials, 
+            settings.secret_key, 
+            algorithms=[settings.algorithm],
+            options={"verify_exp": False}  # Allow expired tokens for refresh
+        )
+        username = payload.get("sub")
+        
+        if not username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Check if user still exists in database
+        query = "SELECT id, username FROM users WHERE username = :username"
+        user_record = await database.fetch_one(query=query, values={"username": username})
+        
+        if not user_record:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         # Create new access token with extended expiry
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
         access_token = create_access_token(
-            data={"sub": current_user.username}, expires_delta=access_token_expires
+            data={"sub": username}, expires_delta=access_token_expires
         )
         
-        logger.info(f"Token refreshed for user {current_user.username}")
+        logger.info(f"Token refreshed for user {username}")
         
         return {
             "access_token": access_token,
@@ -139,6 +173,13 @@ async def refresh_token(
             "message": "Token refreshed successfully"
         }
         
+    except JWTError as e:
+        logger.error(f"Token refresh failed - invalid token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except Exception as e:
         logger.error(f"Token refresh failed: {e}")
         raise HTTPException(

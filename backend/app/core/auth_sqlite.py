@@ -19,7 +19,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     
     # Query SQLite database for user
-    query = "SELECT id, username, password_hash, created_at, active_ai_provider_id FROM users WHERE username = :username"
+    query = "SELECT id, username, password_hash, created_at, active_text_provider_id, active_image_provider_id FROM users WHERE username = :username"
     user_record = await database.fetch_one(query=query, values={"username": username})
     
     if user_record is None:
@@ -35,5 +35,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         username=user_record["username"], 
         password_hash=user_record["password_hash"],
         created_at=user_record["created_at"],
-        active_ai_provider_id=user_record["active_ai_provider_id"]
+        active_text_provider_id=user_record["active_text_provider_id"],
+        active_image_provider_id=user_record["active_image_provider_id"]
     )

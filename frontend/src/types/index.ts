@@ -163,15 +163,3 @@ export interface UserProfileCreate {
 
 export interface UserProfileUpdate extends UserProfileCreate {}
 
-export interface UserProfileSummary {
-  basic_info: {
-    name?: string
-    work_nickname?: string
-    gender?: '男' | '女' | '无性别' | '其他性别'
-    job_type?: string
-    job_level?: '实习' | '初级' | '中级' | '高级'
-    is_manager?: boolean
-  }
-  big_five_personality: BigFivePersonality
-  work_relationships: WorkRelationship[]
-}

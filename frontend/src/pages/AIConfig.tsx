@@ -23,6 +23,7 @@ export default function AIConfig() {
     mutationFn: (provider: AIProviderCreate) => aiProvidersApi.create(provider),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
+      queryClient.invalidateQueries({ queryKey: ['text-models'] })
       handleCloseForm()
       alert('AI提供商添加成功！')
     },
@@ -38,6 +39,7 @@ export default function AIConfig() {
       aiProvidersApi.update(id, data),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
+      queryClient.invalidateQueries({ queryKey: ['text-models'] })
       // If this was from the form, close it and show success
       if (editingProvider && variables.data.name) {
         handleCloseForm()
@@ -54,6 +56,7 @@ export default function AIConfig() {
     mutationFn: (id: number) => aiProvidersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
+      queryClient.invalidateQueries({ queryKey: ['text-models'] })
       alert('AI提供商删除成功！')
     },
     onError: (error: any) => {
@@ -212,13 +215,25 @@ export default function AIConfig() {
 
                   <div className="flex justify-between items-center pt-2">
                     <div className="flex space-x-2">
-                      {!provider.is_active && (
+                      {!provider.is_active ? (
                         <Button
                           size="sm"
                           onClick={() => handleSetActive(provider.id)}
                           disabled={updateProviderMutation.isPending}
                         >
-                          设为活跃
+                          启用
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateProviderMutation.mutate({
+                            id: provider.id.toString(),
+                            data: { is_active: false }
+                          })}
+                          disabled={updateProviderMutation.isPending}
+                        >
+                          停用
                         </Button>
                       )}
                       <Button
@@ -311,13 +326,25 @@ export default function AIConfig() {
 
                         <div className="flex justify-between items-center pt-2">
                           <div className="flex space-x-2">
-                            {!provider.is_active && (
+                            {!provider.is_active ? (
                               <Button
                                 size="sm"
                                 onClick={() => handleSetActive(provider.id)}
                                 disabled={updateProviderMutation.isPending}
                               >
-                                设为活跃
+                                启用
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateProviderMutation.mutate({
+                                  id: provider.id.toString(),
+                                  data: { is_active: false }
+                                })}
+                                disabled={updateProviderMutation.isPending}
+                              >
+                                停用
                               </Button>
                             )}
                             <Button

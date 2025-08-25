@@ -7,8 +7,7 @@ import type {
   UserProfile, 
   UserProfileCreate, 
   WorkRelationship, 
-  WorkRelationshipCreate,
-  UserProfileSummary 
+  WorkRelationshipCreate
 } from '@/types'
 import BasicInfoForm from '@/components/BasicInfoForm'
 import BigFivePersonality from '@/components/BigFivePersonality'
@@ -16,7 +15,7 @@ import WorkRelationshipCards from '@/components/WorkRelationshipCards'
 
 const Profile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [summary, setSummary] = useState<UserProfileSummary | null>(null)
+  const [relationships, setRelationships] = useState<WorkRelationship[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'basic' | 'personality' | 'relationships'>('basic')
@@ -28,13 +27,13 @@ const Profile: React.FC = () => {
   const loadProfile = async () => {
     try {
       setLoading(true)
-      const [profileData, summaryData] = await Promise.all([
+      const [profileData, relationshipsData] = await Promise.all([
         userProfileApi.get().catch(() => null), // Handle case where profile doesn't exist
-        userProfileApi.getSummary()
+        workRelationshipsApi.getAll().catch(() => [])
       ])
       
       setProfile(profileData)
-      setSummary(summaryData)
+      setRelationships(relationshipsData)
     } catch (err) {
       console.error('Error loading profile:', err)
       setError('加载个人资料失败')
@@ -50,7 +49,7 @@ const Profile: React.FC = () => {
         : await userProfileApi.createOrUpdate(data)
       
       setProfile(updatedProfile)
-      await loadProfile() // Refresh summary
+      await loadProfile() // Refresh data
     } catch (err) {
       console.error('Error updating basic info:', err)
       setError('更新基本信息失败')
@@ -61,7 +60,7 @@ const Profile: React.FC = () => {
     try {
       const updatedProfile = await userProfileApi.updatePersonalityDimension(dimension, tags)
       setProfile(updatedProfile)
-      await loadProfile() // Refresh summary
+      await loadProfile() // Refresh data
     } catch (err) {
       console.error('Error updating personality:', err)
       setError('更新性格标签失败')
@@ -162,7 +161,13 @@ const Profile: React.FC = () => {
               为每个人格维度添加描述标签，帮助AI更好地理解你的性格特点
             </p>
             <BigFivePersonality 
-              personality={summary?.big_five_personality} 
+              personality={{
+                openness: profile?.personality_openness || [],
+                conscientiousness: profile?.personality_conscientiousness || [],
+                extraversion: profile?.personality_extraversion || [],
+                agreeableness: profile?.personality_agreeableness || [],
+                neuroticism: profile?.personality_neuroticism || []
+              }} 
               onUpdate={handlePersonalityUpdate}
             />
           </Card>
@@ -175,7 +180,7 @@ const Profile: React.FC = () => {
               管理你的同事关系，每个同事将显示为独立的卡片
             </p>
             <WorkRelationshipCards 
-              relationships={summary?.work_relationships || []}
+              relationships={relationships}
               onCreate={handleWorkRelationshipCreate}
               onDelete={handleWorkRelationshipDelete}
             />
@@ -183,41 +188,6 @@ const Profile: React.FC = () => {
         )}
       </div>
 
-      {/* Profile Summary (if available) */}
-      {summary && (
-        <Card className="mt-8 p-6">
-          <h2 className="text-xl font-semibold mb-4">个人资料摘要</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-medium mb-2">基本信息</h3>
-              <div className="space-y-1 text-sm text-gray-600">
-                {summary.basic_info.name && <p>姓名: {summary.basic_info.name}</p>}
-                {summary.basic_info.work_nickname && <p>工作昵称: {summary.basic_info.work_nickname}</p>}
-                {summary.basic_info.job_type && <p>职位: {summary.basic_info.job_type}</p>}
-                {summary.basic_info.job_level && <p>级别: {summary.basic_info.job_level}</p>}
-                {summary.basic_info.is_manager !== undefined && (
-                  <p>管理职责: {summary.basic_info.is_manager ? '是' : '否'}</p>
-                )}
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="font-medium mb-2">团队关系</h3>
-              <div className="space-y-1 text-sm text-gray-600">
-                {summary.work_relationships.length === 0 ? (
-                  <p>暂无工作关系</p>
-                ) : (
-                  summary.work_relationships.map(rel => (
-                    <p key={rel.id}>
-                      {rel.coworker_name} ({rel.relationship_type})
-                    </p>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }

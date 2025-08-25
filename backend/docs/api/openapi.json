@@ -1408,33 +1408,6 @@
         ]
       }
     },
-    "/api/profile/summary": {
-      "get": {
-        "tags": [
-          "User Profile"
-        ],
-        "summary": "Get Profile Summary",
-        "description": "Get structured profile summary for frontend",
-        "operationId": "get_profile_summary_api_profile_summary_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserProfileSummary"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/profile/relationships": {
       "get": {
         "tags": [
@@ -1857,52 +1830,6 @@
         },
         "type": "object",
         "title": "AIProviderUpdate"
-      },
-      "BigFivePersonality": {
-        "properties": {
-          "openness": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Openness",
-            "description": "经验开放性 - 对新事物、新想法的好奇心和想象力"
-          },
-          "conscientiousness": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Conscientiousness",
-            "description": "尽责性 - 自律、有条理、可靠的程度"
-          },
-          "extraversion": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Extraversion",
-            "description": "外向性 - 从社交中获取能量的程度，热情、健谈"
-          },
-          "agreeableness": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Agreeableness",
-            "description": "宜人性 - 对他人友好、合作、有同情心的程度"
-          },
-          "neuroticism": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Neuroticism",
-            "description": "神经质 - 情绪的稳定性，感受负面情绪的倾向"
-          }
-        },
-        "type": "object",
-        "title": "BigFivePersonality"
       },
       "Body_extract_text_from_image_api_tasks_extract_text_from_image_post": {
         "properties": {
@@ -2821,27 +2748,6 @@
           "updated_at"
         ],
         "title": "UserProfileResponse"
-      },
-      "UserProfileSummary": {
-        "properties": {
-          "basic_info": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Basic Info"
-          },
-          "big_five_personality": {
-            "$ref": "#/components/schemas/BigFivePersonality"
-          },
-          "work_relationships": {
-            "items": {
-              "$ref": "#/components/schemas/WorkRelationshipResponse"
-            },
-            "type": "array",
-            "title": "Work Relationships"
-          }
-        },
-        "type": "object",
-        "title": "UserProfileSummary"
       },
       "UserProfileUpdate": {
         "properties": {

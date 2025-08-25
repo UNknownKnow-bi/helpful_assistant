@@ -341,6 +341,30 @@ EasyOCR
 - Automatic background token refresh prevents unexpected logouts
 - Reduced login friction and improved productivity workflow
 
+**✅ COMPLETED (2025-08-25): Authentication System Bug Fixes**
+
+**🔧 Critical Authentication Fixes:**
+- **Fixed Infinite Token Refresh Loop**: Resolved issue where expired tokens caused endless refresh attempts
+- **Enhanced Refresh Endpoint**: Modified `/auth/refresh` to accept expired tokens for proper renewal
+- **Login Flow Protection**: API interceptor now skips token refresh for login/register endpoints
+- **Proper Error Propagation**: Login failures now show correct error messages instead of getting stuck
+
+**Technical Implementation:**
+- **Backend (`auth_sqlite.py`)**:
+  - Updated refresh endpoint to decode tokens with `verify_exp: False`
+  - Added proper JWT error handling for truly invalid tokens
+  - Validates user existence without requiring authenticated user object
+- **Frontend (`api.ts`)**:
+  - Added endpoint filtering to skip interceptor for `/auth/login` and `/auth/register`
+  - Enhanced error logging and auth state cleanup
+  - Prevents interference between login flow and token refresh logic
+
+**Issues Resolved:**
+- ✅ Users can now login successfully without getting stuck in "登录中..." state
+- ✅ Token expiration properly triggers logout when refresh fails
+- ✅ 403 Forbidden errors on expired tokens now handled gracefully
+- ✅ Login failures show proper error messages to users
+
 **✅ COMPLETED (2025-08-20): Enhanced AI Model Selection System**
 
 ## Next Priority Tasks
@@ -364,6 +388,7 @@ EasyOCR
    - Performance optimization for large-scale task management
    - Enhanced error handling and user feedback systems
    - Deployment preparation and production optimization
+- to memorize
 - to memorize
 - to memorize
 - to memorize

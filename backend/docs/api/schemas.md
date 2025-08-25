@@ -25,14 +25,6 @@ Generated from OpenAPI specification
 - `config` (unknown) (optional): 
 - `is_active` (unknown) (optional): 
 
-## BigFivePersonality
-**Properties:**
-- `openness` (array of string) (optional): 经验开放性 - 对新事物、新想法的好奇心和想象力
-- `conscientiousness` (array of string) (optional): 尽责性 - 自律、有条理、可靠的程度
-- `extraversion` (array of string) (optional): 外向性 - 从社交中获取能量的程度，热情、健谈
-- `agreeableness` (array of string) (optional): 宜人性 - 对他人友好、合作、有同情心的程度
-- `neuroticism` (array of string) (optional): 神经质 - 情绪的稳定性，感受负面情绪的倾向
-
 ## Body_extract_text_from_image_api_tasks_extract_text_from_image_post
 **Properties:**
 - `file` (string) (required): 
@@ -162,12 +154,6 @@ Generated from OpenAPI specification
 - `id` (integer) (required): 
 - `created_at` (string) (required): 
 - `updated_at` (string) (required): 
-- `work_relationships` (array of unknown) (optional): 
-
-## UserProfileSummary
-**Properties:**
-- `basic_info` (object) (optional): 
-- `big_five_personality` (reference to BigFivePersonality) (optional): 
 - `work_relationships` (array of unknown) (optional): 
 
 ## UserProfileUpdate

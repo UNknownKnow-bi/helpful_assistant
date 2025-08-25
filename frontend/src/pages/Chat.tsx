@@ -629,7 +629,7 @@ export default function Chat() {
                     <option value="">使用默认模型</option>
                     {textModels.map((model) => (
                       <option key={model.id} value={model.id}>
-                        {model.name} ({model.config.model}) {model.is_active && '★'}
+                        {model.name} ({model.config.model})
                       </option>
                     ))}
                   </select>

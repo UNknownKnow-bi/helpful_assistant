@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Database file location
-DATABASE_URL = "sqlite:///./data/cortex_assistant.db"
+DATABASE_URL = "sqlite:///./app/data/sqlite_database.db"
 database = Database(DATABASE_URL)
 
 # SQLAlchemy engine and session
@@ -22,7 +22,7 @@ async def connect_to_database():
     """Connect to SQLite database and create tables"""
     try:
         # Ensure data directory exists
-        os.makedirs("data", exist_ok=True)
+        os.makedirs("app/data", exist_ok=True)
         
         # Create all tables
         Base.metadata.create_all(bind=engine)

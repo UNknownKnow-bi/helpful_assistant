@@ -367,15 +367,6 @@ Uses AI OCR if active imageOCR provider is configured, otherwise falls back to E
 
 ---
 
-### GET /api/profile/summary
-**Summary:** Get Profile Summary
-**Description:** Get structured profile summary for frontend
-**Authentication:** Required (JWT Bearer Token)
-**Responses:**
-- `200`: Successful Response
-
----
-
 ### GET /api/profile/relationships
 **Summary:** Get Work Relationships
 **Description:** Get all work relationships for current user

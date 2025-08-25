@@ -211,16 +211,3 @@ class UserProfileResponse(UserProfileBase):
     updated_at: datetime
     work_relationships: List[WorkRelationshipResponse] = Field(default_factory=list)
 
-# Big Five Personality Dimensions (for frontend convenience)
-class BigFivePersonality(BaseModel):
-    openness: List[str] = Field(default_factory=list, description="经验开放性 - 对新事物、新想法的好奇心和想象力")
-    conscientiousness: List[str] = Field(default_factory=list, description="尽责性 - 自律、有条理、可靠的程度")
-    extraversion: List[str] = Field(default_factory=list, description="外向性 - 从社交中获取能量的程度，热情、健谈")
-    agreeableness: List[str] = Field(default_factory=list, description="宜人性 - 对他人友好、合作、有同情心的程度")
-    neuroticism: List[str] = Field(default_factory=list, description="神经质 - 情绪的稳定性，感受负面情绪的倾向")
-
-# Convenient profile summary for frontend
-class UserProfileSummary(BaseModel):
-    basic_info: Dict[str, Any] = Field(default_factory=dict)
-    big_five_personality: BigFivePersonality = Field(default_factory=BigFivePersonality)
-    work_relationships: List[WorkRelationshipResponse] = Field(default_factory=list)

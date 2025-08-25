@@ -12,6 +12,10 @@ from app.models.sqlite_models import (
 from app.core.auth_sqlite import get_current_user
 from app.services.ai_service_sqlite import ai_service_sqlite
 from app.services.ocr_service import ocr_service
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -266,29 +270,52 @@ async def extract_text_from_image(
         )
     
     try:
+        logger.info(f"Starting OCR text extraction for user {current_user.id}, file size: {len(file_content)} bytes")
+        
+        # Debug: Show all AI providers for this user
+        from app.database.sqlite_models import AIProvider
+        all_providers = db.query(AIProvider).filter(AIProvider.user_id == current_user.id).all()
+        logger.info(f"User has {len(all_providers)} total AI providers configured")
+        for provider in all_providers:
+            logger.info(f"  Provider {provider.id}: {provider.name}, category={provider.category}, active={provider.is_active}")
+        
         # Check if user has an active AI OCR provider
         ai_ocr_provider = ai_service_sqlite.get_active_image_ocr_provider(current_user.id, db)
         extracted_text = ""
         ocr_method = ""
         
         if ai_ocr_provider:
+            logger.info(f"Found active AI OCR provider: {ai_ocr_provider.name} (ID: {ai_ocr_provider.id})")
+            logger.info(f"Provider config: model={ai_ocr_provider.config.get('model')}, base_url={ai_ocr_provider.config.get('base_url')}")
+            
             # Use AI-powered OCR (Qwen-OCR)
             try:
+                logger.info("Attempting AI-powered OCR extraction...")
                 extracted_text = await ai_service_sqlite.extract_text_from_image_ai(
                     current_user.id, file_content, db
                 )
+                logger.info(f"AI OCR successful, extracted {len(extracted_text)} characters")
                 ocr_method = "AI OCR"
             except Exception as ai_error:
                 # Fallback to EasyOCR if AI OCR fails
-                print(f"AI OCR failed, falling back to EasyOCR: {ai_error}")
-                extracted_text = await ocr_service.extract_text_from_image(file_content)
-                ocr_method = "EasyOCR (AI OCR fallback)"
+                logger.error(f"AI OCR failed, falling back to EasyOCR: {ai_error}")
+                logger.exception("Full AI OCR error traceback:")
+                try:
+                    extracted_text = await ocr_service.extract_text_from_image(file_content)
+                    logger.info(f"EasyOCR fallback successful, extracted {len(extracted_text)} characters")
+                    ocr_method = "EasyOCR (AI OCR fallback)"
+                except Exception as easy_error:
+                    logger.error(f"EasyOCR fallback also failed: {easy_error}")
+                    raise
         else:
+            logger.info("No active AI OCR provider found, using local EasyOCR")
             # Use local EasyOCR
             extracted_text = await ocr_service.extract_text_from_image(file_content)
+            logger.info(f"EasyOCR extraction successful, extracted {len(extracted_text)} characters")
             ocr_method = "EasyOCR"
         
         if not extracted_text or not extracted_text.strip():
+            logger.warning(f"No text extracted using {ocr_method}")
             return {
                 "success": False,
                 "extracted_text": "",

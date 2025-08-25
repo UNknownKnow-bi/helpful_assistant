@@ -6,8 +6,7 @@ from app.database.sqlite_connection import SessionLocal
 from app.database.sqlite_models import UserProfile as UserProfileModel, WorkRelationship as WorkRelationshipModel, User
 from app.models.sqlite_models import (
     UserProfileCreate, UserProfileUpdate, UserProfileResponse, UserProfile,
-    WorkRelationshipCreate, WorkRelationshipUpdate, WorkRelationshipResponse, WorkRelationship,
-    UserProfileSummary, BigFivePersonality
+    WorkRelationshipCreate, WorkRelationshipUpdate, WorkRelationshipResponse, WorkRelationship
 )
 from app.core.auth_sqlite import get_current_user
 
@@ -91,42 +90,6 @@ async def update_profile(
     db.refresh(profile)
     return profile
 
-@router.get("/summary", response_model=UserProfileSummary)
-async def get_profile_summary(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get structured profile summary for frontend"""
-    profile = db.query(UserProfileModel).filter(UserProfileModel.user_id == current_user.id).first()
-    
-    if not profile:
-        # Return empty summary if no profile exists
-        return UserProfileSummary()
-    
-    # Build basic info dictionary
-    basic_info = {
-        "name": profile.name,
-        "work_nickname": profile.work_nickname,
-        "gender": profile.gender,
-        "job_type": profile.job_type,
-        "job_level": profile.job_level,
-        "is_manager": profile.is_manager
-    }
-    
-    # Build Big Five personality structure
-    big_five = BigFivePersonality(
-        openness=profile.personality_openness or [],
-        conscientiousness=profile.personality_conscientiousness or [],
-        extraversion=profile.personality_extraversion or [],
-        agreeableness=profile.personality_agreeableness or [],
-        neuroticism=profile.personality_neuroticism or []
-    )
-    
-    return UserProfileSummary(
-        basic_info=basic_info,
-        big_five_personality=big_five,
-        work_relationships=profile.work_relationships
-    )
 
 # Work Relationship Endpoints
 @router.get("/relationships", response_model=List[WorkRelationshipResponse])

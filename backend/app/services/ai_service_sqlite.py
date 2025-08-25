@@ -5,6 +5,10 @@ import json
 import re
 import httpx
 import asyncio
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class AIServiceSQLite:
     def __init__(self):
@@ -86,7 +90,7 @@ class AIServiceSQLite:
                 # Make the streaming request
                 async with client.stream(
                     "POST",
-                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
+                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -149,10 +153,10 @@ class AIServiceSQLite:
         import logging
         logger = logging.getLogger(__name__)
         
-        provider = self.get_active_provider(user_id, db)
+        provider = self.get_active_provider(user_id, db, "text")
         if not provider:
-            logger.warning(f"No active AI provider found for user {user_id}")
-            raise ValueError("No active AI provider configured")
+            logger.warning(f"No active text AI provider found for user {user_id}")
+            raise ValueError("No active text AI provider configured")
         
         logger.info(f"Found active provider: {provider.name} (ID: {provider.id}) for user {user_id}")
 
@@ -239,7 +243,7 @@ class AIServiceSQLite:
                 }
                 
                 response = await client.post(
-                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
+                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
                     json=payload,
                     headers=headers
                 )
@@ -410,19 +414,25 @@ class AIServiceSQLite:
             base_url = config.get('base_url', 'https://api.openai.com')
             endpoint = f"{base_url}/v1/chat/completions"
             
-            # For imageOCR providers, use vision model format with test image
+            # For imageOCR providers, use vision model format with base64 test image
             if provider.provider_type == "imageOCR":
+                # Use a simple base64 encoded test image (small PNG with "Test" text)
+                # This is a minimal 1x1 transparent PNG for testing API connectivity
+                test_image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                
                 test_messages = [
                     {
                         "role": "user",
                         "content": [
                             {
-                                "type": "image_url",
-                                "image_url": "https://goeastmandarin.com/wp-content/uploads/2023/06/nihao1-1024x576.jpg"
+                                "type": "text",
+                                "text": "请识别这张测试图片中的内容（这是一个连接测试）"
                             },
                             {
-                                "type": "text",
-                                "text": "请识别这张图片中的文字内容"
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{test_image_base64}"
+                                }
                             }
                         ]
                     }
@@ -481,7 +491,7 @@ class AIServiceSQLite:
 
     async def generate_session_title(self, user_id: int, first_message: str, db: Session) -> str:
         """Generate a short session title based on user's first message"""
-        provider = self.get_active_provider(user_id, db)
+        provider = self.get_active_provider(user_id, db, "text")
         if not provider:
             return "新对话"
         
@@ -517,7 +527,7 @@ class AIServiceSQLite:
                 payload = self._build_payload(config, messages, stream=False, max_tokens_override=max_tokens_for_title)
                 
                 response = await client.post(
-                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
+                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {config.get('api_key', '')}",
@@ -577,12 +587,31 @@ class AIServiceSQLite:
             return "新对话"
 
     def get_active_image_ocr_provider(self, user_id: int, db: Session) -> Optional[AIProvider]:
-        """Get active AI provider specifically for image OCR"""
-        return db.query(AIProvider).filter(
+        """Get active AI provider specifically for image OCR (using image category)"""
+        logger.info(f"Searching for active image OCR provider for user {user_id}")
+        
+        # Get all image providers for debugging
+        all_image_providers = db.query(AIProvider).filter(
+            AIProvider.user_id == user_id,
+            AIProvider.category == "image"
+        ).all()
+        
+        logger.info(f"Found {len(all_image_providers)} total image providers for user {user_id}")
+        for provider in all_image_providers:
+            logger.info(f"  Provider {provider.id}: {provider.name}, active={provider.is_active}, category={provider.category}")
+        
+        active_provider = db.query(AIProvider).filter(
             AIProvider.user_id == user_id,
             AIProvider.is_active == True,
-            AIProvider.provider_type == "imageOCR"
+            AIProvider.category == "image"
         ).first()
+        
+        if active_provider:
+            logger.info(f"Active image OCR provider found: {active_provider.name} (ID: {active_provider.id})")
+        else:
+            logger.warning(f"No active image OCR provider found for user {user_id}")
+        
+        return active_provider
 
     async def extract_text_from_image_ai(self, user_id: int, image_bytes: bytes, db: Session) -> str:
         """
@@ -596,15 +625,48 @@ class AIServiceSQLite:
         Returns:
             Extracted text as string
         """
+        logger.info(f"Starting AI OCR extraction for user {user_id}")
         provider = self.get_active_image_ocr_provider(user_id, db)
         if not provider:
+            logger.error(f"No active AI OCR provider configured for user {user_id}")
             raise ValueError("No active AI OCR provider configured")
+        
+        logger.info(f"Using AI OCR provider: {provider.name} (model: {provider.config.get('model')})")
         
         try:
             import base64
+            from PIL import Image
+            from io import BytesIO
             
             # Convert image bytes to base64
+            logger.info(f"Converting {len(image_bytes)} bytes to base64...")
             image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+            logger.info(f"Base64 conversion complete, length: {len(image_base64)}")
+            
+            # Detect image format using PIL and set proper Content-Type
+            try:
+                with BytesIO(image_bytes) as image_buffer:
+                    pil_image = Image.open(image_buffer)
+                    image_format = pil_image.format.lower() if pil_image.format else 'jpeg'
+                    logger.info(f"Detected image format: {image_format}, size: {pil_image.size}")
+            except Exception as e:
+                # Fallback to jpeg if detection fails
+                logger.warning(f"Image format detection failed: {e}, using jpeg fallback")
+                image_format = 'jpeg'
+            
+            content_type_map = {
+                'jpeg': 'image/jpeg',
+                'jpg': 'image/jpeg', 
+                'png': 'image/png',
+                'bmp': 'image/bmp',
+                'tiff': 'image/tiff',
+                'webp': 'image/webp',
+                'heic': 'image/heic'
+            }
+            
+            # Default to jpeg if format detection fails
+            content_type = content_type_map.get(image_format, 'image/jpeg')
+            logger.info(f"Detected image format: {image_format}, content-type: {content_type}")
             
             # Build OCR prompt for Chinese/English text extraction
             system_prompt = """你是一个专业的图像文字识别助手。请仔细分析用户上传的图片，提取其中的所有文字内容。
@@ -620,8 +682,11 @@ class AIServiceSQLite:
 请开始识别图片中的文字内容："""
             
             config = provider.config
+            logger.info(f"Provider config - base_url: {config.get('base_url')}, model: {config.get('model')}")
+            logger.info(f"API key present: {bool(config.get('api_key'))}")
             
-            # Build message with image
+            # Build message with image using proper base64 data URL format
+            logger.info("Building multimodal message with image...")
             messages = [
                 {
                     "role": "system", 
@@ -637,7 +702,7 @@ class AIServiceSQLite:
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
+                                "url": f"data:{content_type};base64,{image_base64}"
                             }
                         }
                     ]
@@ -648,36 +713,67 @@ class AIServiceSQLite:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 # Build payload using user configuration
                 payload = self._build_payload(config, messages, stream=False, max_tokens_override=2000)
+                logger.info(f"Built API payload with model: {payload.get('model')}, max_tokens: {payload.get('max_tokens')}")
                 
                 headers = {
                     "Authorization": f"Bearer {config.get('api_key', '')}",
                     "Content-Type": "application/json"
                 }
                 
-                response = await client.post(
-                    f"{config.get('base_url', 'https://api.openai.com')}/v1/chat/completions",
-                    json=payload,
-                    headers=headers
-                )
+                # Use the exact configured base URL - trust user configuration
+                api_url = f"{config.get('base_url', 'https://api.openai.com')}/chat/completions"
+                logger.info(f"Making API request to: {api_url}")
+                logger.info(f"Request headers: {dict(headers)}")
+                logger.info(f"Request payload keys: {list(payload.keys())}")
+                logger.info(f"Message structure: {[msg.get('role') for msg in payload.get('messages', [])]}")
+                
+                try:
+                    response = await client.post(
+                        api_url,
+                        json=payload,
+                        headers=headers
+                    )
+                    logger.info(f"API response status: {response.status_code}")
+                except Exception as req_error:
+                    logger.error(f"HTTP request failed: {type(req_error).__name__}: {req_error}")
+                    logger.error(f"API URL: {api_url}")
+                    logger.error(f"Config base_url: {config.get('base_url')}")
+                    logger.error(f"Config model: {config.get('model')}")
+                    raise
                 
                 if response.status_code == 200:
-                    response_data = response.json()
-                    if "choices" in response_data and len(response_data["choices"]) > 0:
-                        message = response_data["choices"][0]["message"]
-                        extracted_text = message.get("content", "").strip()
+                    try:
+                        response_data = response.json()
+                        logger.info(f"API response keys: {list(response_data.keys())}")
                         
-                        # Clean up the response
-                        if extracted_text:
-                            return extracted_text
+                        if "choices" in response_data and len(response_data["choices"]) > 0:
+                            message = response_data["choices"][0]["message"]
+                            extracted_text = message.get("content", "").strip()
+                            logger.info(f"Extracted text length: {len(extracted_text)}")
+                            logger.debug(f"Extracted text preview: {extracted_text[:200]}...")
+                            
+                            # Clean up the response
+                            if extracted_text:
+                                logger.info("AI OCR extraction successful")
+                                return extracted_text
+                            else:
+                                logger.error("AI OCR returned empty response")
+                                raise ValueError("AI OCR returned empty response")
                         else:
-                            raise ValueError("AI OCR returned empty response")
-                    else:
-                        raise ValueError("Invalid response format from AI OCR")
+                            logger.error(f"Invalid response format: {response_data}")
+                            raise ValueError("Invalid response format from AI OCR")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse JSON response: {e}")
+                        logger.error(f"Raw response: {response.text}")
+                        raise ValueError(f"Invalid JSON response from AI OCR: {e}")
                 else:
                     error_text = response.text
+                    logger.error(f"API error {response.status_code}: {error_text}")
                     raise ValueError(f"AI OCR API error {response.status_code}: {error_text}")
                     
         except Exception as e:
+            logger.error(f"AI OCR extraction failed: {str(e)}")
+            logger.exception("Full AI OCR error traceback:")
             raise ValueError(f"AI OCR failed: {str(e)}")
 
 ai_service_sqlite = AIServiceSQLite()

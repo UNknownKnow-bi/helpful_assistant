@@ -83,27 +83,18 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({ profile, onUpdate }) => {
         </div>
       </div>
 
-      {/* Gender Selection */}
+      {/* Gender Input */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           性别
         </label>
-        <div className="flex flex-wrap gap-2">
-          {['男', '女', '无性别', '其他性别'].map((genderOption) => (
-            <button
-              key={genderOption}
-              type="button"
-              onClick={() => handleInputChange('gender', genderOption as any)}
-              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                formData.gender === genderOption
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {genderOption}
-            </button>
-          ))}
-        </div>
+        <Input
+          type="text"
+          value={formData.gender || ''}
+          onChange={(e) => handleInputChange('gender', e.target.value || undefined)}
+          placeholder="男/女/无性别或不填写，只为了让AI更好理解你"
+          className="w-full"
+        />
       </div>
 
       {/* Job Information */}

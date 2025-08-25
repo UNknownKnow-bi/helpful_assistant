@@ -40,11 +40,16 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
     
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401/403 unauthorized errors with token refresh
+    // Skip refresh for login and register endpoints
+    if ((error.response?.status === 401 || error.response?.status === 403) && 
+        !originalRequest._retry && 
+        !originalRequest.url?.includes('/auth/login') && 
+        !originalRequest.url?.includes('/auth/register')) {
       originalRequest._retry = true
       
       try {
-        // Try to refresh token
+        // Try to refresh token (backend now accepts expired tokens)
         const refreshResponse = await api.post('/auth/refresh')
         const newToken = refreshResponse.data.access_token
         
@@ -54,19 +59,44 @@ api.interceptors.response.use(
         // Update the original request with new token
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         
+        console.log('Token refreshed successfully, retrying original request')
+        
         // Retry the original request
         return api(originalRequest)
       } catch (refreshError) {
-        // If refresh fails, redirect to login
+        // If refresh fails, force logout
+        console.log('Token refresh failed, logging out user')
         localStorage.removeItem('access_token')
+        
+        // Clear auth state from store
+        try {
+          const { useAuthStore } = await import('@/stores/authStore')
+          useAuthStore.getState().logout()
+        } catch (error) {
+          console.warn('Failed to clear auth store state:', error)
+        }
+        
         window.location.href = '/login'
         return Promise.reject(refreshError)
       }
     }
     
-    // For other errors or if refresh already tried, just reject
-    if (error.response?.status === 401) {
+    // For other 401 errors after retry or non-auth errors
+    // Skip logout redirect for login and register endpoints
+    if (error.response?.status === 401 && 
+        !originalRequest.url?.includes('/auth/login') && 
+        !originalRequest.url?.includes('/auth/register')) {
+      console.log('Authentication failed, logging out user')
       localStorage.removeItem('access_token')
+      
+      // Clear auth state from store
+      try {
+        const { useAuthStore } = await import('@/stores/authStore')
+        useAuthStore.getState().logout()
+      } catch (error) {
+        console.warn('Failed to clear auth store state:', error)
+      }
+      
       window.location.href = '/login'
     }
     
