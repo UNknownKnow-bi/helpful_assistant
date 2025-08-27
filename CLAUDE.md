@@ -115,13 +115,24 @@ cd backend && python3 open_docs.py
 
 ### 1. AI Task Card Generation (任务卡片生成)
 
+**✅ ENHANCED: User Profile-Integrated Task Generation**
+
 **Functionality:**
 - Accept Chinese text input from users OR image uploads with OCR text extraction
-- Use AI to parse and extract task information using **Eisenhower Matrix** evaluation
+- Use AI to parse and extract task information using **Eisenhower Matrix** evaluation with **user profile context**
 - Generate structured task cards with enhanced JSON schema(single or multi-task)
 - Enhanced task properties: title, content separation, urgency/importance matrix, participant tracking
-- Controlled by specific prompts to ensure consistent JSON output format
+- **🆕 User Profile Integration**: Leverages user profile and colleague relationships for intelligent task analysis
+- **🆕 Personalized Difficulty Assessment**: Task complexity evaluation based on user's job type, level, and management status
+- **🆕 Smart Assignee/Participant Recognition**: Automatic identification of colleagues from user's work relationships
+- **🆕 Context-Aware Priority Assessment**: Importance evaluation considering user's career stage and role responsibilities
 - OCR Integration: EasyOCR-powered image text extraction with Chinese/English support
+
+**🧠 Enhanced AI Prompt System:**
+- **User Context Integration**: Includes name, work nickname, job type, job level, management status
+- **Colleague Recognition**: Utilizes work relationships database for assignee/participant identification  
+- **Personalized Difficulty Scaling**: Adjusts task complexity based on user's professional experience
+- **Role-Aware Importance Assessment**: Considers career impact and growth value for different job levels
 
 **📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details, request/response schemas, and usage examples.
 ### 2. AI Service Configuration (AI配置)
@@ -414,12 +425,13 @@ EasyOCR
 
 **🔄 Current Focus:**
 
-1. **AI Integration with User Profiles** (Next Priority)
-   - Integrate user profile data into task generation prompts
-   - Personalized task difficulty estimation based on Big Five traits
-   - find out what is the most fit prompt to make ai answer with social sense
-   - Context-aware task assignment using work relationships
-   - Team dynamics consideration in task complexity assessment
+1. **✅ AI Integration with User Profiles** (COMPLETED)
+   - ✅ Integrate user profile data into task generation prompts
+   - ✅ Personalized task difficulty estimation based on job type and level
+   - ✅ Context-aware task assignment using work relationships 
+   - ✅ Enhanced AI prompt system with user context integration
+   - 🔄 Big Five personality-based task recommendations (Future Enhancement)
+   - 🔄 Advanced team dynamics consideration (Future Enhancement)
 
 2. **Advanced Task Features** 
    - Task dependencies and subtask management

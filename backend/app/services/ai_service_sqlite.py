@@ -1,6 +1,6 @@
 from typing import AsyncGenerator, Dict, Any, Optional, List
 from sqlalchemy.orm import Session
-from app.database.sqlite_models import AIProvider
+from app.database.sqlite_models import AIProvider, UserProfile, WorkRelationship
 import json
 import re
 import httpx
@@ -62,6 +62,55 @@ class AIServiceSQLite:
             AIProvider.id == provider_id,
             AIProvider.user_id == user_id
         ).first()
+    
+    def get_user_profile_info(self, user_id: int, db: Session) -> Dict[str, Any]:
+        """Get user profile and work relationships for task generation context"""
+        try:
+            # Get user profile
+            profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+            
+            # Get work relationships
+            relationships = db.query(WorkRelationship).join(UserProfile).filter(
+                UserProfile.user_id == user_id
+            ).all()
+            
+            # Build context information
+            context = {
+                "user_info": {
+                    "name": profile.name if profile else "用户",
+                    "work_nickname": profile.work_nickname if profile else None,
+                    "job_type": profile.job_type if profile else None,
+                    "job_level": profile.job_level if profile else None,
+                    "is_manager": profile.is_manager if profile else False
+                },
+                "colleagues": []
+            }
+            
+            # Add colleague information
+            for rel in relationships:
+                colleague_info = {
+                    "name": rel.coworker_name,
+                    "work_nickname": rel.work_nickname,
+                    "relationship_type": rel.relationship_type,
+                    "job_type": rel.job_type,
+                    "job_level": rel.job_level
+                }
+                context["colleagues"].append(colleague_info)
+            
+            return context
+            
+        except Exception:
+            # Return default context if profile retrieval fails
+            return {
+                "user_info": {
+                    "name": "用户",
+                    "work_nickname": None,
+                    "job_type": None,
+                    "job_level": None,
+                    "is_manager": False
+                },
+                "colleagues": []
+            }
 
     async def chat_stream(self, user_id: int, messages: List[Dict[str, str]], db: Session, model_id: int = None) -> AsyncGenerator[Dict[str, Any], None]:
         """Stream chat responses using httpx with optional model selection"""
@@ -149,35 +198,43 @@ class AIServiceSQLite:
             yield {"error": f"AI service error: {str(e)}"}
 
     async def generate_task_from_text(self, user_id: int, text: str, db: Session) -> List[Dict[str, Any]]:
-        """Generate structured task from text using AI"""
+        """Generate structured task from text using AI with user profile context"""
         import logging
         logger = logging.getLogger(__name__)
         
         provider = self.get_active_provider(user_id, db, "text")
         if not provider:
-            logger.warning(f"No active text AI provider found for user {user_id}")
             raise ValueError("No active text AI provider configured")
-        
-        logger.info(f"Found active provider: {provider.name} (ID: {provider.id}) for user {user_id}")
 
-        # AI prompt for Chinese task extraction using Eisenhower Matrix
-        system_prompt = """你是一个智能任务解析助手。请从用户输入的中文文本中提取任务信息，返回固定的JSON格式。
+        # Get user profile and colleague information
+        user_context = self.get_user_profile_info(user_id, db)
 
-规则：
-1. 只提取明确的任务信息，不确定的部分设为null
-2. title: 用8个字以内简洁概括任务内容（例如："完成项目报告"、"参加会议讨论"）
-3. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
-4. assignee: 将任务分配给用户的人，没有明确指定时设为null
-5. participant: 参与执行任务的人，默认为"你"
-6. 使用艾森豪威尔矩阵评估优先级：
-   - urgency（紧迫性）: "low"或"high" - 是否有时间限制，需要立即关注
-   - importance（重要性）: "low"或"high" - 是否对长期目标有重要贡献
-7. difficulty是1-10的数字，基于任务复杂度
-8. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
-9. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
+        # Build colleague context string
+        colleague_context = ""
+        if user_context["colleagues"]:
+            colleague_names = []
+            for colleague in user_context["colleagues"]:
+                name_info = colleague["name"]
+                if colleague["work_nickname"]:
+                    name_info += f"（{colleague['work_nickname']}）"
+                name_info += f" - {colleague['relationship_type']}"
+                if colleague["job_type"]:
+                    name_info += f"，{colleague['job_type']}"
+                colleague_names.append(name_info)
+            colleague_context = f"\n用户的同事关系：{'; '.join(colleague_names)}"
 
-单任务返回格式：
-{
+        # Build user info context
+        user_info = user_context["user_info"]
+        user_info_context = f"""
+用户信息：
+- 姓名：{user_info['name']}
+- 工作昵称：{user_info['work_nickname'] or '无'}
+- 职位类型：{user_info['job_type'] or '未知'}
+- 职位级别：{user_info['job_level'] or '未知'}
+- 管理层：{'是' if user_info['is_manager'] else '否'}{colleague_context}"""
+
+        # Enhanced AI prompt for Chinese task extraction using Eisenhower Matrix with user context
+        json_template_single = """{
   "title": "8字内任务标题",
   "content": "详细任务描述",
   "deadline": "2024-01-15T09:00:00" 或 null,
@@ -186,10 +243,9 @@ class AIServiceSQLite:
   "urgency": "low|high",
   "importance": "low|high",
   "difficulty": 1-10
-}
-
-多任务返回格式：
-[
+}"""
+        
+        json_template_multi = """[
   {
     "title": "任务1标题",
     "content": "任务1详细描述",
@@ -211,6 +267,29 @@ class AIServiceSQLite:
     "difficulty": 1-10
   }
 ]"""
+        
+        system_prompt = f"""你是一个智能任务解析助手。请从用户输入的中文文本中提取任务信息，返回固定的JSON格式。
+
+{user_info_context}
+
+规则：
+1. 只提取明确的任务信息，不确定的部分设为null
+2. title: 字数8个字以内，简洁概括任务内容（例如："完成项目报告"、"参加会议讨论"）
+3. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
+4. assignee: 根据用户的同事关系识别，提出该任务或将任务分配给用户的人，没有明确指定时设为null
+5. participant: 参与执行任务的人，默认为"你"，如果有识别到相关可能为姓名的人也一并加入
+6. 使用艾森豪威尔矩阵评估优先级：
+   - urgency（紧迫性）: "low"或"high" - 是否有时间限制，需要立即关注
+   - importance（重要性）: "low"或"high" - 是否对长期目标或个人成长价值有重要贡献，结合用户的职位类型、职级、是否管理层判断
+7. difficulty是1-10的数字，基于任务复杂度，需要结合用户的职位类型、职级来判断
+8. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
+9. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
+
+单任务返回格式：
+{json_template_single}
+
+多任务返回格式：
+{json_template_multi}"""
 
         user_prompt = f"请从以下文本中提取任务信息：\n\n{text}"
         

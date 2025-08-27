@@ -221,7 +221,7 @@ async def generate_task_from_text(
             )
             
             db.add(db_task)
-            db.flush()  # Flush to get the ID but don't commit yet
+            db.flush()
             created_tasks.append(db_task)
         
         # Commit all tasks at once
