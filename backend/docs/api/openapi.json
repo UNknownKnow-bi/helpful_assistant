@@ -138,6 +138,35 @@
         ]
       }
     },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Refresh Token",
+        "description": "Refresh access token - accepts expired tokens for renewal",
+        "operationId": "refresh_token_api_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Refresh Token Api Auth Refresh Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/ai-providers": {
       "get": {
         "tags": [
@@ -3040,6 +3069,112 @@
             "type": "string",
             "pattern": "^(下属|同级|上级|团队负责人|公司老板)$",
             "title": "Relationship Type"
+          },
+          "work_nickname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Nickname"
+          },
+          "job_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Type"
+          },
+          "job_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(实习|初级|中级|高级)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Level"
+          },
+          "personality_openness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Openness"
+          },
+          "personality_conscientiousness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Conscientiousness"
+          },
+          "personality_extraversion": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Extraversion"
+          },
+          "personality_agreeableness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Agreeableness"
+          },
+          "personality_neuroticism": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Neuroticism"
           }
         },
         "type": "object",
@@ -3062,6 +3197,112 @@
             "pattern": "^(下属|同级|上级|团队负责人|公司老板)$",
             "title": "Relationship Type"
           },
+          "work_nickname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Nickname"
+          },
+          "job_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Type"
+          },
+          "job_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(实习|初级|中级|高级)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Level"
+          },
+          "personality_openness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Openness"
+          },
+          "personality_conscientiousness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Conscientiousness"
+          },
+          "personality_extraversion": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Extraversion"
+          },
+          "personality_agreeableness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Agreeableness"
+          },
+          "personality_neuroticism": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Neuroticism"
+          },
           "id": {
             "type": "integer",
             "title": "Id"
@@ -3070,6 +3311,11 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
           }
         },
         "type": "object",
@@ -3077,7 +3323,8 @@
           "coworker_name",
           "relationship_type",
           "id",
-          "created_at"
+          "created_at",
+          "updated_at"
         ],
         "title": "WorkRelationshipResponse"
       },
@@ -3107,6 +3354,112 @@
               }
             ],
             "title": "Relationship Type"
+          },
+          "work_nickname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Nickname"
+          },
+          "job_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Type"
+          },
+          "job_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(实习|初级|中级|高级)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Level"
+          },
+          "personality_openness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Openness"
+          },
+          "personality_conscientiousness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Conscientiousness"
+          },
+          "personality_extraversion": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Extraversion"
+          },
+          "personality_agreeableness": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Agreeableness"
+          },
+          "personality_neuroticism": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality Neuroticism"
           }
         },
         "type": "object",

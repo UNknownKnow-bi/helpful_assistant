@@ -126,17 +126,16 @@ async def create_work_relationship(
         db.commit()
         db.refresh(profile)
     
-    # Check for duplicate relationship (same name and type)
+    # Check for duplicate relationship (same name only, allow multiple types for same person)
     existing = db.query(WorkRelationshipModel).filter(
         WorkRelationshipModel.user_profile_id == profile.id,
-        WorkRelationshipModel.coworker_name == relationship_data.coworker_name,
-        WorkRelationshipModel.relationship_type == relationship_data.relationship_type
+        WorkRelationshipModel.coworker_name == relationship_data.coworker_name
     ).first()
     
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Relationship with {relationship_data.coworker_name} as {relationship_data.relationship_type} already exists"
+            detail=f"Colleague {relationship_data.coworker_name} already exists. Use the edit function to update their information."
         )
     
     relationship = WorkRelationshipModel(

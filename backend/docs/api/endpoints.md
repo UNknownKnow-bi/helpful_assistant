@@ -32,6 +32,15 @@ Generated from OpenAPI specification
 
 ---
 
+### POST /api/auth/refresh
+**Summary:** Refresh Token
+**Description:** Refresh access token - accepts expired tokens for renewal
+**Authentication:** Required (JWT Bearer Token)
+**Responses:**
+- `200`: Successful Response
+
+---
+
 ## AI Providers
 ### GET /api/ai-providers
 **Summary:** Get Ai Providers

@@ -192,16 +192,41 @@ Generated from OpenAPI specification
 **Properties:**
 - `coworker_name` (string) (required): 
 - `relationship_type` (string) (required): 
+- `work_nickname` (unknown) (optional): 
+- `job_type` (unknown) (optional): 
+- `job_level` (unknown) (optional): 
+- `personality_openness` (unknown) (optional): 
+- `personality_conscientiousness` (unknown) (optional): 
+- `personality_extraversion` (unknown) (optional): 
+- `personality_agreeableness` (unknown) (optional): 
+- `personality_neuroticism` (unknown) (optional): 
 
 ## WorkRelationshipResponse
 **Properties:**
 - `coworker_name` (string) (required): 
 - `relationship_type` (string) (required): 
+- `work_nickname` (unknown) (optional): 
+- `job_type` (unknown) (optional): 
+- `job_level` (unknown) (optional): 
+- `personality_openness` (unknown) (optional): 
+- `personality_conscientiousness` (unknown) (optional): 
+- `personality_extraversion` (unknown) (optional): 
+- `personality_agreeableness` (unknown) (optional): 
+- `personality_neuroticism` (unknown) (optional): 
 - `id` (integer) (required): 
 - `created_at` (string) (required): 
+- `updated_at` (string) (required): 
 
 ## WorkRelationshipUpdate
 **Properties:**
 - `coworker_name` (unknown) (optional): 
 - `relationship_type` (unknown) (optional): 
+- `work_nickname` (unknown) (optional): 
+- `job_type` (unknown) (optional): 
+- `job_level` (unknown) (optional): 
+- `personality_openness` (unknown) (optional): 
+- `personality_conscientiousness` (unknown) (optional): 
+- `personality_extraversion` (unknown) (optional): 
+- `personality_agreeableness` (unknown) (optional): 
+- `personality_neuroticism` (unknown) (optional): 
 

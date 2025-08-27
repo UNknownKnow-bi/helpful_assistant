@@ -129,7 +129,21 @@ class WorkRelationship(Base):
     user_profile_id = Column(Integer, ForeignKey("user_profiles.id"), nullable=False)
     coworker_name = Column(String(100), nullable=False)
     relationship_type = Column(String(50), nullable=False)  # 下属|同级|上级|团队负责人|公司老板
+    
+    # Extended colleague information
+    work_nickname = Column(String(100), nullable=True)  # 工作昵称
+    job_type = Column(String(200), nullable=True)  # 职位类型 (free text)
+    job_level = Column(String(20), nullable=True)  # 职位级别: 实习|初级|中级|高级
+    
+    # Big Five Personality (JSON arrays for tags)
+    personality_openness = Column(JSON, default=list)  # 经验开放性 tags
+    personality_conscientiousness = Column(JSON, default=list)  # 尽责性 tags
+    personality_extraversion = Column(JSON, default=list)  # 外向性 tags
+    personality_agreeableness = Column(JSON, default=list)  # 宜人性 tags
+    personality_neuroticism = Column(JSON, default=list)  # 神经质 tags
+    
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     user_profile = relationship("UserProfile", back_populates="work_relationships")

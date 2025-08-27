@@ -101,17 +101,55 @@ export interface WorkRelationship {
   id: number
   coworker_name: string
   relationship_type: '下属' | '同级' | '上级' | '团队负责人' | '公司老板'
+  
+  // Extended colleague information
+  work_nickname?: string
+  job_type?: string
+  job_level?: '实习' | '初级' | '中级' | '高级'
+  
+  // Big Five Personality
+  personality_openness?: string[]
+  personality_conscientiousness?: string[]
+  personality_extraversion?: string[]
+  personality_agreeableness?: string[]
+  personality_neuroticism?: string[]
+  
   created_at: string
+  updated_at: string
 }
 
 export interface WorkRelationshipCreate {
   coworker_name: string
   relationship_type: '下属' | '同级' | '上级' | '团队负责人' | '公司老板'
+  
+  // Extended colleague information
+  work_nickname?: string
+  job_type?: string
+  job_level?: '实习' | '初级' | '中级' | '高级'
+  
+  // Big Five Personality
+  personality_openness?: string[]
+  personality_conscientiousness?: string[]
+  personality_extraversion?: string[]
+  personality_agreeableness?: string[]
+  personality_neuroticism?: string[]
 }
 
 export interface WorkRelationshipUpdate {
   coworker_name?: string
   relationship_type?: '下属' | '同级' | '上级' | '团队负责人' | '公司老板'
+  
+  // Extended colleague information
+  work_nickname?: string
+  job_type?: string
+  job_level?: '实习' | '初级' | '中级' | '高级'
+  
+  // Big Five Personality
+  personality_openness?: string[]
+  personality_conscientiousness?: string[]
+  personality_extraversion?: string[]
+  personality_agreeableness?: string[]
+  personality_neuroticism?: string[]
 }
 
 export interface BigFivePersonality {

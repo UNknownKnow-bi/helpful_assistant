@@ -148,6 +148,18 @@ class ChatMessageResponse(ChatMessageBase):
 class WorkRelationshipBase(BaseModel):
     coworker_name: str = Field(..., min_length=1, max_length=100)
     relationship_type: str = Field(..., pattern="^(下属|同级|上级|团队负责人|公司老板)$")
+    
+    # Extended colleague information
+    work_nickname: Optional[str] = Field(None, max_length=100)  # 工作昵称
+    job_type: Optional[str] = Field(None, max_length=200)  # 职位类型 (free text)
+    job_level: Optional[str] = Field(None, pattern="^(实习|初级|中级|高级)$")  # 职位级别
+    
+    # Big Five Personality (tag arrays)
+    personality_openness: Optional[List[str]] = Field(default_factory=list)  # 经验开放性
+    personality_conscientiousness: Optional[List[str]] = Field(default_factory=list)  # 尽责性
+    personality_extraversion: Optional[List[str]] = Field(default_factory=list)  # 外向性
+    personality_agreeableness: Optional[List[str]] = Field(default_factory=list)  # 宜人性
+    personality_neuroticism: Optional[List[str]] = Field(default_factory=list)  # 神经质
 
 class WorkRelationshipCreate(WorkRelationshipBase):
     pass
@@ -155,6 +167,18 @@ class WorkRelationshipCreate(WorkRelationshipBase):
 class WorkRelationshipUpdate(BaseModel):
     coworker_name: Optional[str] = Field(None, min_length=1, max_length=100)
     relationship_type: Optional[str] = Field(None, pattern="^(下属|同级|上级|团队负责人|公司老板)$")
+    
+    # Extended colleague information
+    work_nickname: Optional[str] = Field(None, max_length=100)
+    job_type: Optional[str] = Field(None, max_length=200)
+    job_level: Optional[str] = Field(None, pattern="^(实习|初级|中级|高级)$")
+    
+    # Big Five Personality (tag arrays)
+    personality_openness: Optional[List[str]] = None
+    personality_conscientiousness: Optional[List[str]] = None
+    personality_extraversion: Optional[List[str]] = None
+    personality_agreeableness: Optional[List[str]] = None
+    personality_neuroticism: Optional[List[str]] = None
 
 class WorkRelationship(WorkRelationshipBase):
     model_config = ConfigDict(from_attributes=True)
@@ -162,10 +186,12 @@ class WorkRelationship(WorkRelationshipBase):
     id: int
     user_profile_id: int
     created_at: datetime
+    updated_at: datetime
 
 class WorkRelationshipResponse(WorkRelationshipBase):
     id: int
     created_at: datetime
+    updated_at: datetime
 
 # User Profile Models
 class UserProfileBase(BaseModel):

@@ -7,7 +7,8 @@ import type {
   UserProfile, 
   UserProfileCreate, 
   WorkRelationship, 
-  WorkRelationshipCreate
+  WorkRelationshipCreate,
+  WorkRelationshipUpdate
 } from '@/types'
 import BasicInfoForm from '@/components/BasicInfoForm'
 import BigFivePersonality from '@/components/BigFivePersonality'
@@ -74,6 +75,16 @@ const Profile: React.FC = () => {
     } catch (err) {
       console.error('Error creating work relationship:', err)
       setError('添加同事关系失败')
+    }
+  }
+
+  const handleWorkRelationshipUpdate = async (id: number, data: WorkRelationshipUpdate) => {
+    try {
+      const updatedRelationship = await workRelationshipsApi.update(id, data)
+      setRelationships(prev => prev.map(rel => rel.id === id ? updatedRelationship : rel))
+    } catch (err) {
+      console.error('Error updating work relationship:', err)
+      setError('更新同事关系失败')
     }
   }
 
@@ -182,6 +193,7 @@ const Profile: React.FC = () => {
             <WorkRelationshipCards 
               relationships={relationships}
               onCreate={handleWorkRelationshipCreate}
+              onUpdate={handleWorkRelationshipUpdate}
               onDelete={handleWorkRelationshipDelete}
             />
           </Card>
