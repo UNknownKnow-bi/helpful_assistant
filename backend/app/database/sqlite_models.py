@@ -53,6 +53,8 @@ class Task(Base):
     difficulty = Column(Integer, default=5)  # 1-10 scale
     source = Column(String(20), default="manual")  # "manual", "extension"
     status = Column(String(20), default="pending")  # "pending", "in_progress", "completed"
+    execution_procedures = Column(Text, nullable=True)  # Task execution guidance from AI (JSON string)
+    social_advice = Column(Text, nullable=True)  # Social intelligence advice from AI (JSON string)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

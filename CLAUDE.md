@@ -346,6 +346,123 @@ EasyOCR
 
 **🖼️ API Reference:** See [OCR API Documentation](backend/API_DOCUMENTATION.md#ocr-image-to-task-generation) for complete image processing endpoints, OCR configuration, and dual-mode extraction examples.
 
+### 6. 🆕 AI Task Execution & Social Intelligence System (AI任务执行与社交智能系统)
+
+**✅ FULLY IMPLEMENTED** - Complete 3-step AI workflow for automatic task execution guidance and social intelligence advice generation.
+
+**🏗️ Architecture Overview:**
+The feature implements a sophisticated **3-step AI workflow** that automatically generates comprehensive task guidance:
+1. **Step 1**: Task Creation (existing functionality)
+2. **Step 2**: AI-powered Execution Guidance Generation (project management procedures)
+3. **Step 3**: AI-powered Social Intelligence Advice Generation (organizational psychology insights)
+
+**🤖 Core Functionality:**
+- **Dual AI Generation**: Every task gets both execution procedures AND social intelligence advice automatically
+- **User Context Integration**: Leverages user profile and colleague relationships for personalized guidance
+- **Professional Methodologies**: Project management (SMART/RACI) + organizational psychology (Big Five)
+- **Background Processing**: Non-blocking AI generation using asyncio.create_task() with proper database session management
+- **Multiple Integration Points**: Works with manual tasks, AI-generated tasks, and image-to-task workflows
+- **🆕 Social Intelligence**: Personality-aware communication strategies for workplace interactions
+
+**🧠 Dual AI Prompt Systems:**
+
+**Execution Procedures AI:**
+- **Professional Role**: Project management expert with SMART/RACI methodology expertise
+- **Objective Focus**: 100% task-oriented breakdown, ignoring soft interpersonal factors
+- **User Context Aware**: Integrates name, job type, level, management status, and colleague relationships
+- **Structured Methodology**: Breaks complex tasks into logical phases with actionable steps
+- **Key Results Oriented**: Each step includes specific deliverable outcomes
+
+**🆕 Social Intelligence AI:**
+- **Professional Role**: Top organizational psychologist and workplace EQ coach with Big Five expertise
+- **Psychology Focus**: Analyzes colleague personalities and predicts interpersonal dynamics
+- **Communication Strategy**: Provides specific wording, channels, and approach recommendations
+- **Risk Assessment**: Identifies potential social traps and relationship obstacles
+- **Context Integration**: Considers user's career stage, management status, and team relationships
+
+**📋 API Endpoints:**
+- `POST /api/tasks` - Create task with automatic execution procedures + social advice generation
+- `POST /api/tasks/generate` - AI task generation with execution procedures + social advice
+- `POST /api/tasks/generate-from-image` - Image-to-task with execution procedures + social advice
+- `GET /api/tasks/{id}/execution-procedures` - Retrieve execution procedures
+- `POST /api/tasks/{id}/regenerate-execution-procedures` - Manual regeneration
+- **🆕 `GET /api/tasks/{id}/social-advice`** - Retrieve social intelligence advice
+- **🆕 `POST /api/tasks/{id}/generate-social-advice`** - Generate social advice for existing tasks
+
+**🗄️ Database Integration:**
+- **Dual Columns**: Added `execution_procedures` and `social_advice` TEXT columns to tasks table
+- **JSON Storage**: Stores structured arrays as JSON strings (SQLite compatibility)
+- **Migration Support**: Automated database migration scripts
+- **Pydantic Validation**: Automatic JSON parsing and validation in response models
+- **🆕 Social Advice Schema**: Stores procedure-linked social intelligence recommendations
+
+**⚡ Enhanced Execution Workflow:**
+1. **Task Creation**: User creates task (manual/AI/image)
+2. **Context Gathering**: System retrieves user profile and colleague information
+3. **AI Analysis (Step 2)**: Project management AI generates structured execution steps
+4. **Database Storage**: Procedures stored as JSON in SQLite
+5. **🆕 AI Psychology Analysis (Step 3)**: Organizational psychology AI generates social advice
+6. **🆕 Social Database Storage**: Social advice stored as JSON in SQLite
+7. **API Access**: Both procedures and social advice available via dedicated endpoints
+8. **Manual Override**: Users can regenerate both procedures and social advice independently
+
+**🎯 Execution Procedures Output Structure:**
+```json
+[
+  {
+    "procedure_number": 1,
+    "procedure_content": "分析上次数据回刷导致数据缺失的根本原因",
+    "key_result": "完成数据缺失分析报告，明确缺失数据的时间段和受影响字段"
+  },
+  {
+    "procedure_number": 2, 
+    "procedure_content": "检查当前mid表的生命周期设置",
+    "key_result": "获取当前mid表生命周期配置文档，识别需要调整的参数"
+  }
+]
+```
+
+**🆕 Social Intelligence Advice Output Structure:**
+```json
+[
+  {
+    "procedure_number": 1,
+    "procedure_content": "在生产环境中执行mid表生命周期配置修改",
+    "social_advice": "关键互动对象：运维或数据工程师；可能的反应预测：他们可能担心变更影响生产环境稳定性；最佳沟通策略：通过正式邮件或会议提前沟通，强调已测试验证和回滚方案，避免直接操作；潜在的社交陷阱：未经沟通直接修改可能引发冲突，建议先获得批准。"
+  },
+  {
+    "procedure_number": 2,
+    "procedure_content": "验证回刷后数据的完整性和准确性",
+    "social_advice": "null"
+  }
+]
+```
+
+**🔧 Technical Implementation:**
+- **Enhanced AI Service**: `generate_task_execution_guidance()` and `generate_social_advice()` methods
+- **Background Processing**: Proper asyncio.create_task() with database session management
+- **Database Session Fix**: Individual SessionLocal() instances for background tasks to prevent session conflicts
+- **Dual AI Analysis**: Sequential execution procedures → social advice generation workflow
+- **Error Handling**: Graceful fallbacks when AI provider unavailable with comprehensive logging
+- **JSON Serialization**: Proper handling of dual JSON data structures in SQLite TEXT columns
+- **🆕 Frontend Integration**: TaskProcedurePopup component with tabbed interface for procedures + social advice
+
+**✅ Integration Points:**
+- **Manual Task Creation**: Both procedures and social advice generated after task save
+- **AI Task Generation**: Each generated task gets both execution procedures and social advice
+- **Image-to-Task**: OCR-based tasks include both execution guidance and social intelligence
+- **All workflows**: Seamless 3-step AI integration across all task creation methods
+- **🆕 Frontend UI**: "执行指导" button opens popup with dual tabs for procedures + social advice
+
+**📊 Enhanced Benefits:**
+- **Dual Intelligence**: Users get both operational procedures AND social intelligence guidance
+- **Context Awareness**: Procedures and advice tailored to user's role, relationships, and colleague personalities
+- **Professional Quality**: Project management (SMART/RACI) + organizational psychology best practices
+- **🆕 Social Success**: Maximizes workplace collaboration success through personality-aware communication strategies
+- **Time Saving**: Eliminates both manual task planning AND social strategy development effort
+- **Risk Mitigation**: Proactively identifies and prevents interpersonal obstacles
+- **Consistency**: Standardized approach across all tasks with comprehensive guidance
+
 ## Data Models
 
 **🗂️ Schema Reference:** See [Data Models Documentation](backend/docs/api/schemas.md) for complete schema definitions and [API Documentation](backend/API_DOCUMENTATION.md) for detailed model descriptions with examples.
@@ -367,10 +484,71 @@ EasyOCR
 4. **Chat Interface** (Week 4): ✅ **COMPLETED** - Real-time chat, WebSocket streaming, thinking blocks, SQLite persistence, **✅ Dynamic model selection**
 5. **User Profiling** (Week 5): ✅ **ENHANCED & COMPLETED** - **🆕 Comprehensive colleague management system**, Big Five personality assessment, enhanced work relationship tracking, enterprise-grade form persistence
 6. **Frontend Integration** (Week 6): ✅ **COMPLETED** - Complete UI with task management, chat integration, responsive design, **✅ Categorized AI Config interface**
-7. **Testing & Polish** (Week 7-8): ⏳ **PENDING** - End-to-end testing, performance optimization, deployment
+7. **Task Execution Guidance** (Week 7): ✅ **ENHANCED & COMPLETED** - **🆕 3-Step AI Workflow**: Task Execution Procedures + Social Intelligence Advice System, automatic dual AI generation, user context integration, background processing with database session management
+8. **Testing & Polish** (Week 8-9): ⏳ **IN PROGRESS** - Social intelligence system testing, performance optimization, deployment preparation
 
 
-## ✅ Recent Updates - Token Authentication Enhancement
+## ✅ Recent Updates - Social Intelligence & Execution System
+
+**✅ COMPLETED (2025-09-04): AI-Powered Social Intelligence Advice System**
+
+**🧠 3-Step AI Workflow Enhancement:**
+- **Dual AI Analysis**: Every task now gets BOTH execution procedures AND social intelligence advice automatically
+- **Social Intelligence**: Advanced organizational psychology AI provides personality-aware communication strategies
+- **Background Task Fix**: Resolved database session management issues preventing automatic generation
+- **Complete Integration**: Works seamlessly across manual tasks, AI-generated tasks, and image-to-task workflows
+- **Frontend UI**: New tabbed popup interface displays both execution steps and social advice
+
+**🆕 Social Intelligence Features:**
+- **Big Five Analysis**: Analyzes colleague personalities using OCEAN psychological model
+- **Communication Strategies**: Provides specific wording, channels, and approach recommendations
+- **Risk Assessment**: Identifies potential social traps and relationship obstacles
+- **Context Integration**: Considers user's career stage, management status, and team relationships
+- **Personality-Aware Guidance**: Tailored advice based on colleague personality profiles
+
+**✅ COMPLETED (2025-09-03): AI-Powered Task Execution Guidance Workflow**
+
+**🤖 Execution Procedures Foundation:**
+- **Automatic Execution Procedures**: Every task gets AI-generated execution steps after creation
+- **Professional Methodology**: Based on SMART/RACI project management principles
+- **User Context Integration**: Leverages user profile, job level, and colleague relationships for personalized guidance
+- **Background Processing**: Non-blocking asyncio implementation for optimal performance
+- **Multi-Integration**: Works across manual tasks, AI-generated tasks, and image-to-task workflows
+
+**📄 Enhanced Database & API Integration:**
+- **Dual Database Migration**: Added both `execution_procedures` and `social_advice` TEXT columns to tasks table
+- **SQLite Compatibility**: Proper JSON serialization/deserialization for dual data structures
+- **Enhanced API Endpoints**: 
+  - `GET /api/tasks/{id}/execution-procedures` - Retrieve execution procedures
+  - `POST /api/tasks/{id}/regenerate-execution-procedures` - Manual regeneration
+  - **🆕 `GET /api/tasks/{id}/social-advice`** - Retrieve social intelligence advice
+  - **🆕 `POST /api/tasks/{id}/generate-social-advice`** - Generate social advice for existing tasks
+- **Enhanced Pydantic Integration**: Field validators for automatic JSON parsing of both data structures
+
+**🔧 Enhanced Technical Implementation:**
+- **Dual AI Services**: Both `generate_task_execution_guidance()` and `generate_social_advice()` methods
+- **🆕 Advanced Psychology Prompts**: Sophisticated organizational psychology and Big Five personality analysis
+- **Database Session Management**: Fixed asyncio background tasks with individual SessionLocal() instances
+- **Sequential AI Workflow**: Execution procedures → social advice generation pipeline
+- **Error Handling**: Graceful fallbacks for both AI services when providers unavailable
+- **Enhanced Frontend**: TaskProcedurePopup component with tabbed interface and API integration
+
+**🎯 Enhanced Production Testing:**
+- **🆕 Dual AI Validation**: Successfully tested with tasks generating both execution procedures AND social advice
+- **Live Social Intelligence**: Confirmed AI-generated personality-aware communication strategies
+- **Background Task Fix**: Verified automatic generation now works correctly for new tasks (e.g., "整理办公室文档")
+- **End-to-End Workflow**: Complete 3-step integration from task creation to dual AI guidance display
+- **Frontend Integration**: Confirmed tabbed popup interface displays both procedures and social advice correctly
+
+**📊 Enhanced User Benefits:**
+- **Dual Intelligence**: Users get both operational execution steps AND social intelligence guidance automatically
+- **Context-Aware**: Both procedures and social advice tailored to user's role, level, and team relationships
+- **🆕 Social Success**: Maximizes workplace collaboration through personality-aware communication strategies
+- **Professional Quality**: Combines project management (SMART/RACI) + organizational psychology best practices
+- **Risk Mitigation**: Proactively identifies and prevents interpersonal obstacles before they occur
+- **Time Efficiency**: Eliminates both manual task planning AND social strategy development effort
+
+---
 
 **✅ COMPLETED (2025-08-21): Enhanced Token Authentication System with 24-Hour Expiry**
 
@@ -425,18 +603,21 @@ EasyOCR
 
 **🔄 Current Focus:**
 
-1. **✅ AI Integration with User Profiles** (COMPLETED)
-   - ✅ Integrate user profile data into task generation prompts
-   - ✅ Personalized task difficulty estimation based on job type and level
-   - ✅ Context-aware task assignment using work relationships 
-   - ✅ Enhanced AI prompt system with user context integration
-   - 🔄 Big Five personality-based task recommendations (Future Enhancement)
-   - 🔄 Advanced team dynamics consideration (Future Enhancement)
+1. **✅ AI Task Execution Guidance Workflow** (COMPLETED)
+   - ✅ 2-step AI workflow implementation
+   - ✅ Automatic execution procedure generation
+   - ✅ User context integration with profile and relationships
+   - ✅ Professional project management methodology
+   - ✅ Background processing with asyncio
+   - ✅ Database migration and API endpoints
+   - ✅ Production testing and validation
 
 2. **Advanced Task Features** 
    - Task dependencies and subtask management
-   - Task excution advice from AI with personalize information
+   - Progress tracking and milestone management
    - Integration with calendar systems for deadline management
+   - Task templates based on execution procedures
+   - Team collaboration features for shared tasks
 
 3. **System Polish & Optimization**
    - Comprehensive end-to-end testing across all features
@@ -448,3 +629,5 @@ EasyOCR
 - to memorize
 - to memorize
 - to memorize
+- to
+- to

@@ -5,6 +5,18 @@ export interface User {
   active_ai_provider_id?: number
 }
 
+export interface ExecutionProcedure {
+  procedure_number: number
+  procedure_content: string
+  key_result: string
+}
+
+export interface SocialAdvice {
+  procedure_number: number
+  procedure_content: string
+  social_advice: string | null
+}
+
 export interface Task {
   id: number
   title: string
@@ -17,6 +29,8 @@ export interface Task {
   difficulty: number
   source: 'manual' | 'extension' | 'ai_generated'
   status: 'pending' | 'in_progress' | 'completed'
+  execution_procedures?: ExecutionProcedure[]  // Task execution guidance from AI
+  social_advice?: SocialAdvice[]  // Social intelligence advice from AI
   created_at: string
   updated_at: string
 }

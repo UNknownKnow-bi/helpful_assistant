@@ -189,6 +189,45 @@ export const tasksApi = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/tasks/${id}`)
   },
+  
+  getExecutionProcedures: async (id: number): Promise<{
+    task_id: number
+    execution_procedures: Array<{
+      procedure_number: number
+      procedure_content: string
+      key_result: string
+    }>
+    has_procedures: boolean
+  }> => {
+    const response = await api.get(`/tasks/${id}/execution-procedures`)
+    return response.data
+  },
+  
+  getSocialAdvice: async (id: number): Promise<{
+    task_id: number
+    social_advice: Array<{
+      procedure_number: number
+      procedure_content: string
+      social_advice: string | null
+    }>
+    has_advice: boolean
+  }> => {
+    const response = await api.get(`/tasks/${id}/social-advice`)
+    return response.data
+  },
+  
+  generateSocialAdvice: async (id: number): Promise<{
+    task_id: number
+    social_advice: Array<{
+      procedure_number: number
+      procedure_content: string
+      social_advice: string | null
+    }>
+    message: string
+  }> => {
+    const response = await api.post(`/tasks/${id}/generate-social-advice`)
+    return response.data
+  },
 }
 
 // AI Providers API

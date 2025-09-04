@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import TaskProcedurePopup from '@/components/TaskProcedurePopup'
 import type { Task } from '@/types'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -50,6 +51,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete, 
   onStatusChange 
 }) => {
+  const [showProcedurePopup, setShowProcedurePopup] = useState(false)
   const formatDate = (dateString?: string) => {
     if (!dateString) return null
     try {
@@ -156,6 +158,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
         >
           {task.status === 'completed' ? '重新开始' : '下一步'}
         </Button>
+
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setShowProcedurePopup(true)}
+          className="bg-blue-50 text-blue-600 hover:bg-blue-100"
+        >
+          执行指导
+        </Button>
         
         {onEdit && (
           <Button 
@@ -178,6 +189,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </Button>
         )}
       </CardFooter>
+
+      {/* Task Procedure Popup */}
+      <TaskProcedurePopup 
+        task={task}
+        isOpen={showProcedurePopup}
+        onClose={() => setShowProcedurePopup(false)}
+      />
     </Card>
   )
 }

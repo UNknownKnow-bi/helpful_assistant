@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import json
 
 # User Models
 class UserBase(BaseModel):
@@ -91,15 +92,71 @@ class Task(TaskBase):
     user_id: int
     source: str = "manual"  # "manual", "extension"
     status: str = "pending"  # "pending", "in_progress", "completed"
+    execution_procedures: Optional[List[Dict[str, Any]]] = None  # Task execution guidance from AI
+    social_advice: Optional[List[Dict[str, Any]]] = None  # Social intelligence advice from AI
     created_at: datetime
     updated_at: datetime
+    
+    @field_validator('execution_procedures', mode='before')
+    @classmethod
+    def parse_execution_procedures(cls, v):
+        """Parse execution_procedures from JSON string if needed (for SQLite compatibility)"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return v
+    
+    @field_validator('social_advice', mode='before')
+    @classmethod
+    def parse_social_advice(cls, v):
+        """Parse social_advice from JSON string if needed (for SQLite compatibility)"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return v
 
 class TaskResponse(TaskBase):
     id: int
     source: str
     status: str
+    execution_procedures: Optional[List[Dict[str, Any]]] = None  # Task execution guidance from AI
+    social_advice: Optional[List[Dict[str, Any]]] = None  # Social intelligence advice from AI
     created_at: datetime
     updated_at: datetime
+    
+    @field_validator('execution_procedures', mode='before')
+    @classmethod
+    def parse_execution_procedures(cls, v):
+        """Parse execution_procedures from JSON string if needed (for SQLite compatibility)"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return v
+    
+    @field_validator('social_advice', mode='before')
+    @classmethod
+    def parse_social_advice(cls, v):
+        """Parse social_advice from JSON string if needed (for SQLite compatibility)"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return v
 
 # Chat Models
 class ChatSessionBase(BaseModel):

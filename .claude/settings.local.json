@@ -9,7 +9,8 @@
       "Bash(curl:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git remote add:*)"
     ],
     "deny": []
   }

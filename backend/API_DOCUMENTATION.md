@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, and OCR-based image processing.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, and **🆕 AI-powered social intelligence advice**.
 
 ## Base URL
 ```
@@ -43,14 +43,19 @@ Authorization: Bearer <your_jwt_token>
 - `GET /api/ai-providers/text-models` - Get active text models for chat
 
 ### 📋 Task Management APIs
-- `POST /api/tasks/generate` - Generate tasks from text using AI
+- `POST /api/tasks` - Create task manually (auto-generates procedures + social advice)
+- `POST /api/tasks/generate` - Generate tasks from text using AI (auto-generates procedures + social advice)
 - `POST /api/tasks/extract-text-from-image` - Extract text from image using OCR
-- `POST /api/tasks/generate-from-image` - Generate tasks from image (legacy)
+- `POST /api/tasks/generate-from-image` - Generate tasks from image (auto-generates procedures + social advice)
 - `GET /api/tasks` - List tasks with filtering
 - `GET /api/tasks/stats` - Get task statistics
 - `GET /api/tasks/{task_id}` - Get specific task
 - `PUT /api/tasks/{task_id}` - Update task
 - `DELETE /api/tasks/{task_id}` - Delete task
+- `GET /api/tasks/{task_id}/execution-procedures` - Get task execution procedures
+- `POST /api/tasks/{task_id}/regenerate-execution-procedures` - Regenerate execution procedures
+- **🆕 `GET /api/tasks/{task_id}/social-advice`** - Get AI-powered social intelligence advice
+- **🆕 `POST /api/tasks/{task_id}/generate-social-advice`** - Generate social intelligence advice
 
 ### 💬 Chat APIs
 - `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming
@@ -242,8 +247,64 @@ Test AI provider connection and functionality.
 
 ### Task Management APIs
 
+#### POST /api/tasks
+Create a new task manually with automatic execution procedure and social intelligence advice generation.
+
+**🆕 Enhanced with Dual AI Generation**: This endpoint now automatically generates both AI-powered execution guidance AND social intelligence advice after task creation using a sophisticated 3-step AI workflow.
+
+**Request Body:**
+```json
+{
+  "title": "产品需求分析报告",
+  "content": "完成一个新的产品需求分析报告，需要在本周五之前提交给产品经理张三，涉及用户调研、竞品分析和技术可行性评估",
+  "deadline": "2025-01-05T17:00:00Z",
+  "assignee": "产品经理张三",
+  "participant": "你",
+  "urgency": "high",
+  "importance": "high",
+  "difficulty": 7
+}
+```
+
+**Response:**
+```json
+{
+  "id": 13,
+  "title": "产品需求分析报告",
+  "content": "完成一个新的产品需求分析报告，需要在本周五之前提交给产品经理张三，涉及用户调研、竞品分析和技术可行性评估",
+  "deadline": "2025-01-05T17:00:00Z",
+  "assignee": "产品经理张三",
+  "participant": "你",
+  "urgency": "high",
+  "importance": "high",
+  "difficulty": 7,
+  "source": "manual",
+  "status": "pending",
+  "execution_procedures": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "收集和整理用户调研数据，分析用户需求和痛点",
+      "key_result": "完成用户调研数据分析报告"
+    },
+    {
+      "procedure_number": 2,
+      "procedure_content": "进行竞品分析，识别市场空白和机会点",
+      "key_result": "完成竞品对比分析报告"
+    }
+  ],
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z"
+}
+```
+
+**⚡ Automatic Execution Procedures Generation:**
+- Procedures are generated in background after task creation
+- If no execution procedures appear immediately, they may still be generating
+- Use `GET /api/tasks/{task_id}/execution-procedures` to check generation status
+- Fallback procedures created if AI service unavailable
+
 #### POST /api/tasks/generate
-Generate structured task cards from text input using AI.
+Generate structured task cards from text input using AI with automatic execution procedures.
 
 **Request Body:**
 ```json
@@ -276,13 +337,27 @@ Generate structured task cards from text input using AI.
 }
 ```
 
+**🆕 Enhanced with Execution Procedures**: Each generated task automatically includes AI-powered execution guidance. Procedures are generated in background and can be retrieved via `GET /api/tasks/{task_id}/execution-procedures`.
+```
+
+### OCR Image-to-Task Generation
+
 #### POST /api/tasks/extract-text-from-image
-Extract text from uploaded image using OCR (EasyOCR + AI OCR dual-mode).
+Extract text from uploaded image using dual-mode OCR (AI OCR + EasyOCR fallback).
+
+**👁️ Preview Step**: This endpoint extracts text for preview before task generation. Use `POST /api/tasks/generate` with the extracted text to create tasks with execution procedures.
+
+**🆕 Dual-Mode OCR System:**
+- **Primary**: AI OCR using configured vision-language models (qwen-vl-max, gpt-4v, etc.)
+- **Fallback**: Local EasyOCR for Chinese/English text extraction
+- **Automatic Fallback**: Falls back to EasyOCR if AI OCR fails or is unavailable
 
 **Request:**
-- Form data with `file` field containing image file
-- Supported formats: JPG, PNG, JPEG, BMP, TIFF, WEBP, HEIC
-- Max file size: 10MB
+- **Content-Type**: `multipart/form-data`
+- **Form Field**: `file` containing image file
+- **Supported Formats**: JPG, PNG, JPEG, BMP, TIFF, WEBP, HEIC
+- **Max File Size**: 10MB
+- **Image Processing**: Automatic format detection and base64 encoding
 
 **Response:**
 ```json
@@ -291,6 +366,76 @@ Extract text from uploaded image using OCR (EasyOCR + AI OCR dual-mode).
   "extracted_text": "明天需要完成季度报告\n项目评审会议安排在下周三\n团队培训计划制定",
   "message": "Text extraction successful",
   "ocr_method": "AI OCR"
+}
+```
+
+**➡️ Next Step**: Use the extracted text with `POST /api/tasks/generate` to create tasks with automatic execution procedure generation.
+
+#### POST /api/tasks/generate-from-image (Legacy)
+Direct image-to-task generation with automatic execution procedures.
+
+**🆕 Enhanced with Execution Procedures**: Tasks generated from images automatically include AI-powered execution guidance.
+
+**Request:**
+- **Content-Type**: `multipart/form-data`
+- **Form Field**: `file` containing image file
+- **Supported Formats**: JPG, PNG, JPEG, BMP, TIFF, WEBP, HEIC
+- **Max File Size**: 10MB
+
+**Response:**
+```json
+{
+  "tasks": [
+    {
+      "id": 15,
+      "title": "完成项目报告",
+      "content": "从图片中提取的任务内容",
+      "execution_procedures": [
+        {
+          "procedure_number": 1,
+          "procedure_content": "收集项目数据和进度信息",
+          "key_result": "完成项目数据整理报告"
+        }
+      ],
+      "source": "ai_generated",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+**OCR Method Values:**
+- `"AI OCR"` - Extracted using configured AI vision model
+- `"EasyOCR"` - Extracted using local EasyOCR engine  
+- `"Fallback"` - AI OCR failed, used EasyOCR as backup
+
+**🔧 AI OCR Configuration:**
+Configure image OCR providers in AI Provider Management:
+```json
+{
+  "provider_name": "Qwen Vision OCR",
+  "provider_type": "imageOCR",
+  "api_key": "your_dashscope_api_key",
+  "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "model": "qwen-vl-ocr-latest",
+  "is_active": true
+}
+```
+
+**📊 Image Processing Pipeline:**
+1. **Upload Validation**: File format and size validation
+2. **Format Detection**: PIL/Pillow automatic format detection
+3. **Base64 Encoding**: Convert to `data:image/{format};base64,{data}` format
+4. **AI OCR Attempt**: Send to active vision models with OCR prompt
+5. **Fallback Processing**: Use EasyOCR if AI OCR fails or unavailable
+6. **Text Cleaning**: Remove extra whitespace and normalize output
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "error": "No active imageOCR providers found",
+  "message": "Please configure at least one AI OCR provider or ensure EasyOCR is available"
 }
 ```
 
@@ -344,6 +489,198 @@ Get task statistics with Eisenhower Matrix distribution.
     "not_urgent_not_important": 3
   },
   "average_difficulty": 6.2
+}
+```
+
+### 🆕 Task Execution Procedures APIs
+
+The Task Execution Procedures system provides AI-powered execution guidance for every task. This 2-step workflow automatically generates structured, actionable execution steps based on professional project management methodology.
+
+#### GET /api/tasks/{task_id}/execution-procedures
+Retrieve execution procedures for a specific task.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+
+**Response:**
+```json
+{
+  "task_id": 14,
+  "has_procedures": true,
+  "execution_procedures": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "分析上次数据回刷导致数据缺失的根本原因，确定缺失数据的时间范围和具体字段",
+      "key_result": "完成数据缺失分析报告，明确缺失数据的时间段和受影响字段"
+    },
+    {
+      "procedure_number": 2,
+      "procedure_content": "检查当前mid表的生命周期设置，确认需要修改的具体参数和配置",
+      "key_result": "获取当前mid表生命周期配置文档，识别需要调整的参数"
+    },
+    {
+      "procedure_number": 3,
+      "procedure_content": "设计mid表生命周期修改方案，确保数据回刷可以从指定时间点开始而非2022-01-01",
+      "key_result": "完成mid表生命周期优化方案设计文档"
+    }
+  ]
+}
+```
+
+**Error Response (Task not found):**
+```json
+{
+  "detail": "Task not found"
+}
+```
+
+#### POST /api/tasks/{task_id}/regenerate-execution-procedures
+Manually regenerate execution procedures for a specific task.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+
+**Response:**
+```json
+{
+  "task_id": 14,
+  "execution_procedures": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "分析任务需求和目标，制定详细的执行计划",
+      "key_result": "完成任务分析报告和执行计划文档"
+    },
+    {
+      "procedure_number": 2,
+      "procedure_content": "准备必要的工具和资源，确保执行环境就绪",
+      "key_result": "工具和环境配置完成，具备执行条件"
+    }
+  ],
+  "message": "Successfully generated 2 execution procedures"
+}
+```
+
+**🤖 AI-Powered Generation Features:**
+- **User Context Integration**: Leverages user profile, job type, level, and colleague relationships
+- **Professional Methodology**: Based on SMART/RACI project management principles
+- **Structured Output**: Each procedure includes number, content, and key result
+- **Background Processing**: Procedures generated asynchronously after task creation
+- **Fallback Handling**: Graceful degradation when AI provider unavailable
+
+---
+
+### 🆕 Social Intelligence Advice APIs
+
+#### GET /api/tasks/{task_id}/social-advice
+Retrieve AI-powered social intelligence advice for a specific task based on execution procedures and colleague personality analysis.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+
+**Response:**
+```json
+{
+  "task_id": 14,
+  "has_advice": true,
+  "social_advice": [
+    {
+      "procedure_number": 6,
+      "procedure_content": "在生产环境中执行mid表生命周期配置修改",
+      "social_advice": "关键互动对象：运维或数据工程师；可能的反应预测：他们可能担心变更影响生产环境稳定性；最佳沟通策略：通过正式邮件或会议提前沟通，强调已测试验证和回滚方案，避免直接操作；潜在的社交陷阱：未经沟通直接修改可能引发冲突，建议先获得批准。"
+    },
+    {
+      "procedure_number": 7,
+      "procedure_content": "执行数据回刷操作，从指定时间点开始补全缺失数据",
+      "social_advice": "关键互动对象：团队领导或相关同事；可能的反应预测：他们可能关注进度和资源占用；最佳沟通策略：通过团队聊天或简短更新分享进度，强调时间点和预期完成时间，避免干扰他人工作；潜在的社交陷阱：长时间运行可能影响系统，建议选择低峰期并提前通知。"
+    },
+    {
+      "procedure_number": 9,
+      "procedure_content": "验证回刷后数据的完整性和准确性，与预期结果进行比对",
+      "social_advice": "null"
+    }
+  ]
+}
+```
+
+**Response with No Advice:**
+```json
+{
+  "task_id": 15,
+  "has_advice": false,
+  "social_advice": []
+}
+```
+
+#### POST /api/tasks/{task_id}/generate-social-advice
+Generate social intelligence advice for a specific task. Requires existing execution procedures.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+
+**Prerequisites:**
+- Task must have execution procedures generated first
+- User must have colleague personality profiles configured for optimal results
+
+**Response:**
+```json
+{
+  "task_id": 14,
+  "social_advice": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "分析上次数据回刷导致数据缺失的根本原因",
+      "social_advice": "null"
+    },
+    {
+      "procedure_number": 6,
+      "procedure_content": "在生产环境中执行mid表生命周期配置修改",
+      "social_advice": "关键互动对象：运维或数据工程师；可能的反应预测：他们可能担心变更影响生产环境稳定性；最佳沟通策略：通过正式邮件或会议提前沟通，强调已测试验证和回滚方案，避免直接操作；潜在的社交陷阱：未经沟通直接修改可能引发冲突，建议先获得批准。"
+    }
+  ],
+  "message": "Successfully generated social advice for 10 steps"
+}
+```
+
+**Error Response (No Execution Procedures):**
+```json
+{
+  "detail": "Task must have execution procedures before generating social advice. Please generate execution procedures first."
+}
+```
+
+**🧠 AI-Powered Social Intelligence Features:**
+- **Organizational Psychology**: AI acts as top organizational psychologist with Big Five expertise
+- **Personality Analysis**: Analyzes colleague personalities using OCEAN psychological model
+- **Communication Strategies**: Provides specific wording, channels, and approach recommendations
+- **Risk Assessment**: Identifies potential social traps and relationship obstacles
+- **Context Integration**: Considers user's career stage, management status, and team relationships
+- **Personality-Aware Guidance**: Tailored advice based on colleague personality profiles from user's work relationships
+- **Background Processing**: Social advice generated automatically after execution procedures
+- **Fallback Handling**: Graceful handling when colleague personality data unavailable
+
+**📋 Enhanced Automatic Integration:**
+Both execution procedures AND social intelligence advice are automatically generated for:
+- **Manual Task Creation** (`POST /api/tasks`) - 3-step AI workflow
+- **AI Task Generation** (`POST /api/tasks/generate`) - 3-step AI workflow 
+- **Image-to-Task Workflows** (`POST /api/tasks/generate-from-image`) - 3-step AI workflow
+
+**⚠️ Requirements:**
+- Active text AI provider must be configured
+- User must have valid authentication token
+- Task must exist and belong to the requesting user
+- **🆕 For optimal social advice**: User should have colleague personality profiles configured in work relationships
+
+**Error Response (No AI Provider):**
+```json
+{
+  "detail": "No active text AI provider configured"
+}
+```
+
+**Error Response (AI Generation Failed):**
+```json
+{
+  "detail": "Failed to regenerate execution procedures: AI service temporarily unavailable"
 }
 ```
 
@@ -484,13 +821,21 @@ Update specific Big Five personality dimension tags.
 ```
 
 #### POST /api/profile/relationships
-Create a new work relationship.
+Create a new work relationship with enhanced colleague profiling.
 
 **Request Body:**
 ```json
 {
   "coworker_name": "王五",
-  "relationship_type": "上级"
+  "work_nickname": "产品老王",
+  "relationship_type": "上级",
+  "job_type": "产品总监", 
+  "job_level": "高级",
+  "personality_openness": ["创新思维", "好奇心强"],
+  "personality_conscientiousness": ["注重细节", "有条理"],
+  "personality_extraversion": ["善于沟通", "领导力强"],
+  "personality_agreeableness": ["友善", "支持团队"],
+  "personality_neuroticism": ["情绪稳定", "抗压能力强"]
 }
 ```
 
@@ -500,8 +845,35 @@ Create a new work relationship.
   "id": 2,
   "user_profile_id": 1,
   "coworker_name": "王五",
+  "work_nickname": "产品老王",
   "relationship_type": "上级",
-  "created_at": "2025-01-01T00:00:00Z"
+  "job_type": "产品总监",
+  "job_level": "高级",
+  "personality_openness": ["创新思维", "好奇心强"],
+  "personality_conscientiousness": ["注重细节", "有条理"],
+  "personality_extraversion": ["善于沟通", "领导力强"],
+  "personality_agreeableness": ["友善", "支持团队"],
+  "personality_neuroticism": ["情绪稳定", "抗压能力强"],
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z"
+}
+```
+
+#### PUT /api/profile/relationships/{id}
+Update existing work relationship with full colleague information.
+
+**Request Body:** Same schema as POST (all fields optional for updates)
+
+**Response:** Updated work relationship object with same structure as POST response
+
+#### DELETE /api/profile/relationships/{id}
+Delete work relationship.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Work relationship deleted successfully"
 }
 ```
 
@@ -524,8 +896,28 @@ Create a new work relationship.
   "difficulty": "integer (1-10)",
   "source": "enum: manual|extension|ai_generated",
   "status": "enum: pending|in_progress|completed",
+  "execution_procedures": "array|null",
   "created_at": "datetime",
   "updated_at": "datetime"
+}
+```
+
+**🆕 Enhanced Task Model with Execution Procedures:**
+The `execution_procedures` field contains an array of structured execution steps:
+```json
+{
+  "execution_procedures": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "分析任务需求和目标",
+      "key_result": "完成任务分析报告"
+    },
+    {
+      "procedure_number": 2,
+      "procedure_content": "制定详细的执行计划",
+      "key_result": "完成执行计划文档"
+    }
+  ]
 }
 ```
 
@@ -567,16 +959,32 @@ Create a new work relationship.
 }
 ```
 
-### Work Relationship Model
+### Work Relationship Model (Enhanced)
 ```json
 {
   "id": "integer",
   "user_profile_id": "integer",
   "coworker_name": "string",
+  "work_nickname": "string|null",
   "relationship_type": "enum: 下属|同级|上级|团队负责人|公司老板",
-  "created_at": "datetime"
+  "job_type": "string|null",
+  "job_level": "enum: 实习|初级|中级|高级|null",
+  "personality_openness": "array of strings",
+  "personality_conscientiousness": "array of strings", 
+  "personality_extraversion": "array of strings",
+  "personality_agreeableness": "array of strings",
+  "personality_neuroticism": "array of strings",
+  "created_at": "datetime",
+  "updated_at": "datetime"
 }
 ```
+
+**🆕 Enhanced Features:**
+- **Extended Information**: Work nickname, job type, and job level tracking
+- **Big Five Personality Profiling**: Complete personality assessment for each colleague
+- **Auto-Save Support**: Draft management for colleague editing with localStorage persistence
+- **Inline Editing**: Direct editing functionality on colleague cards
+- **Visual Organization**: Color-coded personality tags by psychological dimensions
 
 ---
 

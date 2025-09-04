@@ -72,7 +72,7 @@ async def create_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new task manually"""
+    """Create a new task manually with automatic execution guidance generation"""
     db_task = TaskModel(
         user_id=current_user.id,
         title=task.title,
@@ -88,6 +88,78 @@ async def create_task(
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
+    
+    # Generate execution procedures and social advice automatically in background
+    import asyncio
+    async def generate_task_guidance(task_id: int, user_id: int):
+        # Create a new database session for the background task
+        background_db = SessionLocal()
+        try:
+            logger.info(f"Starting background generation for task {task_id}")
+            
+            # Get the task from the new database session
+            background_task = background_db.query(TaskModel).filter(TaskModel.id == task_id).first()
+            if not background_task:
+                logger.error(f"Task {task_id} not found in background task")
+                return
+            
+            logger.info(f"Generating execution procedures for task {task_id}")
+            
+            task_data = {
+                "content": background_task.content,
+                "deadline": background_task.deadline.isoformat() if background_task.deadline else None,
+                "assignee": background_task.assignee,
+                "participant": background_task.participant,
+                "urgency": background_task.urgency,
+                "importance": background_task.importance,
+                "difficulty": background_task.difficulty
+            }
+            
+            execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
+                user_id=user_id,
+                task_data=task_data,
+                db=background_db
+            )
+            
+            # Update task with execution procedures (serialize to JSON string for SQLite)
+            import json
+            background_task.execution_procedures = json.dumps(execution_procedures) if execution_procedures else None
+            background_db.commit()
+            
+            logger.info(f"Successfully generated {len(execution_procedures)} execution procedures for task {task_id}")
+            
+            # Generate social advice based on execution procedures
+            if execution_procedures:
+                try:
+                    logger.info(f"Generating social advice for task {task_id}")
+                    
+                    social_advice = await ai_service_sqlite.generate_social_advice(
+                        user_id=user_id,
+                        task_data=task_data,
+                        execution_procedures=execution_procedures,
+                        db=background_db
+                    )
+                    
+                    # Update task with social advice (serialize to JSON string for SQLite)
+                    background_task.social_advice = json.dumps(social_advice) if social_advice else None
+                    background_db.commit()
+                    
+                    logger.info(f"Successfully generated {len(social_advice)} social advice items for task {task_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to generate social advice for task {task_id}: {e}")
+                    logger.exception("Full social advice generation error:")
+            
+        except Exception as e:
+            # Log error but don't fail the task creation
+            logger.error(f"Failed to generate execution procedures for task {task_id}: {e}")
+            logger.exception("Full execution guidance generation error:")
+        finally:
+            background_db.close()
+    
+    # Run guidance generation in background with proper parameters
+    asyncio.create_task(generate_task_guidance(db_task.id, current_user.id))
+    
     return db_task
 
 @router.get("", response_model=List[TaskResponse])
@@ -181,6 +253,103 @@ async def delete_task(
     db.commit()
     return {"message": "Task deleted successfully"}
 
+# Task Execution Procedures
+@router.get("/{task_id}/execution-procedures")
+async def get_task_execution_procedures(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get execution procedures for a specific task"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Deserialize execution procedures from JSON string for SQLite
+    import json
+    execution_procedures = []
+    if task.execution_procedures:
+        try:
+            execution_procedures = json.loads(task.execution_procedures)
+        except (json.JSONDecodeError, TypeError):
+            execution_procedures = []
+    
+    return {
+        "task_id": task_id,
+        "execution_procedures": execution_procedures,
+        "has_procedures": bool(execution_procedures)
+    }
+
+@router.post("/{task_id}/regenerate-execution-procedures")
+async def regenerate_task_execution_procedures(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Manually regenerate execution procedures for a specific task"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    try:
+        logger.info(f"Manually regenerating execution procedures for task {task_id}")
+        
+        task_data = {
+            "content": task.content,
+            "deadline": task.deadline.isoformat() if task.deadline else None,
+            "assignee": task.assignee,
+            "participant": task.participant,
+            "urgency": task.urgency,
+            "importance": task.importance,
+            "difficulty": task.difficulty
+        }
+        
+        execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
+            user_id=current_user.id,
+            task_data=task_data,
+            db=db
+        )
+        
+        # Update task with new execution procedures (serialize to JSON string for SQLite)
+        import json
+        task.execution_procedures = json.dumps(execution_procedures) if execution_procedures else None
+        task.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(task)
+        
+        logger.info(f"Successfully regenerated {len(execution_procedures)} execution procedures for task {task_id}")
+        
+        return {
+            "task_id": task_id,
+            "execution_procedures": execution_procedures,
+            "message": f"Successfully generated {len(execution_procedures)} execution procedures"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to regenerate execution procedures: {str(e)}"
+        )
+
 # AI-powered Task Generation
 @router.post("/generate", response_model=List[TaskResponse])
 async def generate_task_from_text(
@@ -204,7 +373,7 @@ async def generate_task_from_text(
             db=db
         )
         
-        # Create tasks from AI-generated data
+        # Create tasks from AI-generated data with execution procedures
         created_tasks = []
         for task_data in tasks_data:
             db_task = TaskModel(
@@ -221,7 +390,7 @@ async def generate_task_from_text(
             )
             
             db.add(db_task)
-            db.flush()
+            db.flush()  # Flush to get ID for logging
             created_tasks.append(db_task)
         
         # Commit all tasks at once
@@ -230,6 +399,77 @@ async def generate_task_from_text(
         # Refresh all tasks to get updated data
         for task in created_tasks:
             db.refresh(task)
+        
+        # Generate procedures and social advice for each task in parallel
+        import asyncio
+        async def generate_full_guidance_for_task(task_id: int, user_id: int):
+            # Create a new database session for the background task
+            background_db = SessionLocal()
+            try:
+                logger.info(f"Starting background generation for AI task {task_id}")
+                
+                # Get the task from the new database session
+                background_task = background_db.query(TaskModel).filter(TaskModel.id == task_id).first()
+                if not background_task:
+                    logger.error(f"AI task {task_id} not found in background task")
+                    return
+                
+                logger.info(f"Generating execution procedures for AI task {task_id}")
+                
+                task_info = {
+                    "content": background_task.content,
+                    "deadline": background_task.deadline.isoformat() if background_task.deadline else None,
+                    "assignee": background_task.assignee,
+                    "participant": background_task.participant,
+                    "urgency": background_task.urgency,
+                    "importance": background_task.importance,
+                    "difficulty": background_task.difficulty
+                }
+                
+                execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
+                    user_id=user_id,
+                    task_data=task_info,
+                    db=background_db
+                )
+                
+                # Update task with execution procedures (serialize to JSON string for SQLite)
+                import json
+                background_task.execution_procedures = json.dumps(execution_procedures) if execution_procedures else None
+                background_db.commit()
+                
+                logger.info(f"Successfully generated {len(execution_procedures)} execution procedures for AI task {task_id}")
+                
+                # Generate social advice based on execution procedures
+                if execution_procedures:
+                    try:
+                        logger.info(f"Generating social advice for AI task {task_id}")
+                        
+                        social_advice = await ai_service_sqlite.generate_social_advice(
+                            user_id=user_id,
+                            task_data=task_info,
+                            execution_procedures=execution_procedures,
+                            db=background_db
+                        )
+                        
+                        # Update task with social advice (serialize to JSON string for SQLite)
+                        background_task.social_advice = json.dumps(social_advice) if social_advice else None
+                        background_db.commit()
+                        
+                        logger.info(f"Successfully generated {len(social_advice)} social advice items for AI task {task_id}")
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to generate social advice for AI task {task_id}: {e}")
+                        logger.exception("Full social advice generation error:")
+                
+            except Exception as e:
+                logger.error(f"Failed to generate execution procedures for AI task {task_id}: {e}")
+                logger.exception("Full execution guidance generation error:")
+            finally:
+                background_db.close()
+        
+        # Generate full guidance for all tasks in background (don't await to avoid blocking response)
+        for task in created_tasks:
+            asyncio.create_task(generate_full_guidance_for_task(task.id, current_user.id))
             
         return created_tasks
         
@@ -382,7 +622,7 @@ async def generate_task_from_image(
             db=db
         )
         
-        # Create tasks from AI-generated data
+        # Create tasks from AI-generated data with execution procedures
         created_tasks = []
         for task_data in tasks_data:
             db_task = TaskModel(
@@ -408,6 +648,77 @@ async def generate_task_from_image(
         # Refresh all tasks to get updated data
         for task in created_tasks:
             db.refresh(task)
+        
+        # Generate procedures and social advice for each task in parallel
+        import asyncio
+        async def generate_full_guidance_for_image_task(task_id: int, user_id: int):
+            # Create a new database session for the background task
+            background_db = SessionLocal()
+            try:
+                logger.info(f"Starting background generation for image task {task_id}")
+                
+                # Get the task from the new database session
+                background_task = background_db.query(TaskModel).filter(TaskModel.id == task_id).first()
+                if not background_task:
+                    logger.error(f"Image task {task_id} not found in background task")
+                    return
+                
+                logger.info(f"Generating execution procedures for image-generated task {task_id}")
+                
+                task_info = {
+                    "content": background_task.content,
+                    "deadline": background_task.deadline.isoformat() if background_task.deadline else None,
+                    "assignee": background_task.assignee,
+                    "participant": background_task.participant,
+                    "urgency": background_task.urgency,
+                    "importance": background_task.importance,
+                    "difficulty": background_task.difficulty
+                }
+                
+                execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
+                    user_id=user_id,
+                    task_data=task_info,
+                    db=background_db
+                )
+                
+                # Update task with execution procedures (serialize to JSON string for SQLite)
+                import json
+                background_task.execution_procedures = json.dumps(execution_procedures) if execution_procedures else None
+                background_db.commit()
+                
+                logger.info(f"Successfully generated {len(execution_procedures)} execution procedures for image task {task_id}")
+                
+                # Generate social advice based on execution procedures
+                if execution_procedures:
+                    try:
+                        logger.info(f"Generating social advice for image task {task_id}")
+                        
+                        social_advice = await ai_service_sqlite.generate_social_advice(
+                            user_id=user_id,
+                            task_data=task_info,
+                            execution_procedures=execution_procedures,
+                            db=background_db
+                        )
+                        
+                        # Update task with social advice (serialize to JSON string for SQLite)
+                        background_task.social_advice = json.dumps(social_advice) if social_advice else None
+                        background_db.commit()
+                        
+                        logger.info(f"Successfully generated {len(social_advice)} social advice items for image task {task_id}")
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to generate social advice for image task {task_id}: {e}")
+                        logger.exception("Full social advice generation error:")
+                
+            except Exception as e:
+                logger.error(f"Failed to generate execution procedures for image task {task_id}: {e}")
+                logger.exception("Full execution guidance generation error:")
+            finally:
+                background_db.close()
+        
+        # Generate full guidance for all tasks in background (don't await to avoid blocking response)
+        for task in created_tasks:
+            asyncio.create_task(generate_full_guidance_for_image_task(task.id, current_user.id))
             
         return created_tasks
         
@@ -420,5 +731,117 @@ async def generate_task_from_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate task from image: {str(e)}"
+        )
+
+# Social Advice for Task Execution
+@router.get("/{task_id}/social-advice")
+async def get_task_social_advice(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get social advice for a specific task"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Deserialize social advice from JSON string for SQLite
+    import json
+    social_advice = []
+    if task.social_advice:
+        try:
+            social_advice = json.loads(task.social_advice)
+        except (json.JSONDecodeError, TypeError):
+            social_advice = []
+    
+    return {
+        "task_id": task_id,
+        "social_advice": social_advice,
+        "has_advice": bool(social_advice)
+    }
+
+@router.post("/{task_id}/generate-social-advice")
+async def generate_task_social_advice(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate social advice for a specific task based on execution procedures"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Check if task has execution procedures
+    import json
+    execution_procedures = []
+    if task.execution_procedures:
+        try:
+            execution_procedures = json.loads(task.execution_procedures)
+        except (json.JSONDecodeError, TypeError):
+            execution_procedures = []
+    
+    if not execution_procedures:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Task must have execution procedures before generating social advice. Please generate execution procedures first."
+        )
+    
+    try:
+        logger.info(f"Generating social advice for task {task_id}")
+        
+        task_data = {
+            "content": task.content,
+            "deadline": task.deadline.isoformat() if task.deadline else None,
+            "assignee": task.assignee,
+            "participant": task.participant,
+            "urgency": task.urgency,
+            "importance": task.importance,
+            "difficulty": task.difficulty
+        }
+        
+        social_advice = await ai_service_sqlite.generate_social_advice(
+            user_id=current_user.id,
+            task_data=task_data,
+            execution_procedures=execution_procedures,
+            db=db
+        )
+        
+        # Update task with social advice (serialize to JSON string for SQLite)
+        task.social_advice = json.dumps(social_advice) if social_advice else None
+        task.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(task)
+        
+        logger.info(f"Successfully generated {len(social_advice)} social advice items for task {task_id}")
+        
+        return {
+            "task_id": task_id,
+            "social_advice": social_advice,
+            "message": f"Successfully generated social advice for {len(social_advice)} steps"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate social advice: {str(e)}"
         )
 
