@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { tasksApi } from '@/services/api'
@@ -210,9 +211,24 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
                             <div>
                               <h4 className="font-medium text-purple-700 mb-1">💡 社会化建议:</h4>
                               <div className="bg-purple-50 p-3 rounded-md">
-                                <p className="text-gray-800 leading-relaxed">
-                                  {advice.social_advice}
-                                </p>
+                                <div className="text-gray-800 leading-relaxed markdown-content">
+                                  <ReactMarkdown 
+                                    components={{
+                                      h1: ({children}) => <h1 className="text-lg font-bold mb-2 text-purple-800">{children}</h1>,
+                                      h2: ({children}) => <h2 className="text-base font-semibold mb-2 text-purple-700">{children}</h2>,
+                                      h3: ({children}) => <h3 className="text-sm font-medium mb-1 text-purple-600">{children}</h3>,
+                                      p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                                      strong: ({children}) => <strong className="font-semibold text-purple-800">{children}</strong>,
+                                      em: ({children}) => <em className="italic text-purple-700">{children}</em>,
+                                      ul: ({children}) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
+                                      ol: ({children}) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+                                      li: ({children}) => <li className="text-sm">{children}</li>,
+                                      code: ({children}) => <code className="bg-purple-100 px-1 py-0.5 rounded text-xs text-purple-900">{children}</code>
+                                    }}
+                                  >
+                                    {advice.social_advice}
+                                  </ReactMarkdown>
+                                </div>
                               </div>
                             </div>
                           )}
