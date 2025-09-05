@@ -158,6 +158,20 @@ class TaskResponse(TaskBase):
                 return None
         return v
 
+# Task Preview Models for two-stage creation
+class TaskPreview(TaskBase):
+    """Task preview data returned by AI generation without database storage"""
+    pass
+
+class TaskPreviewResponse(BaseModel):
+    """Response containing preview tasks that haven't been saved yet"""
+    tasks: List[TaskPreview]
+    message: str = "任务预览生成成功，请确认后保存"
+
+class TaskConfirmRequest(BaseModel):
+    """Request to confirm and save preview tasks"""
+    tasks: List[TaskCreate]
+
 # Chat Models
 class ChatSessionBase(BaseModel):
     title: str = "New Chat"

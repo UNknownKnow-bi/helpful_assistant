@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { tasksApi } from '@/services/api'
-import type { Task } from '@/types'
+import TaskPreviewPopup from '@/components/TaskPreviewPopup'
+import type { Task, TaskPreview, TaskCreate } from '@/types'
 
 interface TaskGenerationFormProps {
   onTaskGenerated?: (tasks: Task[]) => void
@@ -22,7 +23,14 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
   const [imageStep, setImageStep] = useState<'upload' | 'preview' | 'confirmed'>('upload')
   const [isExtracting, setIsExtracting] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  
+  // Task preview state
+  const [showPreviewPopup, setShowPreviewPopup] = useState(false)
+  const [previewTasks, setPreviewTasks] = useState<TaskPreview[]>([])
+  const [previewMessage, setPreviewMessage] = useState('')
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Handle OCR text extraction from image
@@ -51,8 +59,8 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
     }
   }
 
-  // Handle final task generation
-  const handleGenerate = async () => {
+  // Handle task preview generation (Step 1: Generate preview)
+  const handleGeneratePreview = async () => {
     if (inputMode === 'text') {
       if (!inputText.trim()) {
         onError?.('请输入任务描述')
@@ -67,24 +75,45 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
 
     setIsGenerating(true)
     try {
-      let tasks: Task[]
-      if (inputMode === 'text') {
-        tasks = await tasksApi.generateFromText(inputText.trim())
-      } else {
-        // Use extracted text for AI task generation
-        tasks = await tasksApi.generateFromText(extractedText.trim())
-      }
+      const textToProcess = inputMode === 'text' ? inputText.trim() : extractedText.trim()
+      const response = await tasksApi.generatePreview(textToProcess)
       
-      onTaskGenerated?.(Array.isArray(tasks) ? tasks : [tasks])
+      setPreviewTasks(response.tasks)
+      setPreviewMessage(response.message)
+      setShowPreviewPopup(true)
       
-      // Reset form
-      resetForm()
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '生成任务失败，请重试'
+      const errorMessage = error.response?.data?.detail || '生成任务预览失败，请重试'
       onError?.(errorMessage)
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  // Handle task confirmation (Step 2: Save to database)
+  const handleConfirmTasks = async (tasksToCreate: TaskCreate[]) => {
+    setIsConfirming(true)
+    try {
+      const savedTasks = await tasksApi.confirmTasks(tasksToCreate)
+      
+      onTaskGenerated?.(Array.isArray(savedTasks) ? savedTasks : [savedTasks])
+      
+      // Close popup and reset form
+      setShowPreviewPopup(false)
+      resetForm()
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || '保存任务失败，请重试'
+      onError?.(errorMessage)
+    } finally {
+      setIsConfirming(false)
+    }
+  }
+
+  // Handle preview popup close
+  const handlePreviewClose = () => {
+    setShowPreviewPopup(false)
+    setPreviewTasks([])
+    setPreviewMessage('')
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,7 +185,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
-      handleGenerate()
+      handleGeneratePreview()
     }
   }
 
@@ -176,7 +205,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
               variant={inputMode === 'text' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handleModeSwitch('text')}
-              disabled={isGenerating || isExtracting}
+              disabled={isGenerating || isExtracting || isConfirming}
               className="flex-1"
             >
               📝 文字输入
@@ -185,7 +214,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
               variant={inputMode === 'image' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handleModeSwitch('image')}
-              disabled={isGenerating || isExtracting}
+              disabled={isGenerating || isExtracting || isConfirming}
               className="flex-1"
             >
               🖼️ 图片识别
@@ -206,7 +235,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                 onKeyDown={handleKeyDown}
                 rows={4}
                 className="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isGenerating}
+                disabled={isGenerating || isConfirming}
               />
               <p className="text-xs text-gray-500">
                 提示：可以包含截止时间、负责人、优先级等信息。按 Ctrl/Cmd + Enter 快速生成
@@ -241,7 +270,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                       accept="image/*"
                       onChange={handleFileSelect}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      disabled={isExtracting || isGenerating}
+                      disabled={isExtracting || isGenerating || isConfirming}
                     />
                     
                     {selectedFile ? (
@@ -271,7 +300,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                     <div className="flex gap-2 mt-3">
                       <Button 
                         onClick={handleExtractText}
-                        disabled={isExtracting || isGenerating}
+                        disabled={isExtracting || isGenerating || isConfirming}
                         className="flex-1"
                       >
                         {isExtracting ? (
@@ -292,7 +321,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                             fileInputRef.current.value = ''
                           }
                         }}
-                        disabled={isExtracting || isGenerating}
+                        disabled={isExtracting || isGenerating || isConfirming}
                       >
                         重选
                       </Button>
@@ -323,7 +352,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                       onChange={(e) => setExtractedText(e.target.value)}
                       rows={6}
                       className="w-full p-3 border border-yellow-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      disabled={isGenerating}
+                      disabled={isGenerating || isConfirming}
                       placeholder="识别出的文字将显示在这里，您可以编辑修改..."
                     />
                     <p className="text-xs text-yellow-700 mt-2">
@@ -333,7 +362,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
 
                   <div className="flex gap-2 mt-3">
                     <Button 
-                      onClick={handleGenerate}
+                      onClick={handleGeneratePreview}
                       disabled={isGenerating || !extractedText.trim()}
                       className="flex-1"
                     >
@@ -343,7 +372,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                           AI正在生成任务...
                         </>
                       ) : (
-                        '✨ 生成任务卡片'
+                        '✨ 生成任务预览'
                       )}
                     </Button>
                     
@@ -353,7 +382,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                         setImageStep('upload')
                         setExtractedText('')
                       }}
-                      disabled={isGenerating}
+                      disabled={isGenerating || isConfirming}
                     >
                       重新上传
                     </Button>
@@ -367,7 +396,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
           {inputMode === 'text' && (
             <div className="flex gap-2">
               <Button 
-                onClick={handleGenerate}
+                onClick={handleGeneratePreview}
                 disabled={isGenerating || !inputText.trim()}
                 className="flex-1"
               >
@@ -377,14 +406,14 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                     AI正在解析...
                   </>
                 ) : (
-                  '生成任务卡片'
+                  '预览任务卡片'
                 )}
               </Button>
               
               <Button 
                 variant="outline"
                 onClick={() => setInputText('')}
-                disabled={isGenerating}
+                disabled={isGenerating || isConfirming}
               >
                 清空
               </Button>
@@ -430,6 +459,16 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
           </div>
         </div>
       </CardContent>
+
+      {/* Task Preview Popup */}
+      <TaskPreviewPopup
+        isOpen={showPreviewPopup}
+        tasks={previewTasks}
+        message={previewMessage}
+        onClose={handlePreviewClose}
+        onConfirm={handleConfirmTasks}
+        isConfirming={isConfirming}
+      />
     </Card>
   )
 }

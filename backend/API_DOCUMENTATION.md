@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, and **🆕 AI-powered social intelligence advice**.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, and **🆕 two-stage task preview & confirmation system**.
 
 ## Base URL
 ```
@@ -45,6 +45,8 @@ Authorization: Bearer <your_jwt_token>
 ### 📋 Task Management APIs
 - `POST /api/tasks` - Create task manually (auto-generates procedures + social advice)
 - `POST /api/tasks/generate` - Generate tasks from text using AI (auto-generates procedures + social advice)
+- **🆕 `POST /api/tasks/generate-preview`** - Generate task preview without database save (Two-Stage Workflow)
+- **🆕 `POST /api/tasks/confirm-tasks`** - Confirm and save preview tasks to database
 - `POST /api/tasks/extract-text-from-image` - Extract text from image using OCR
 - `POST /api/tasks/generate-from-image` - Generate tasks from image (auto-generates procedures + social advice)
 - `GET /api/tasks` - List tasks with filtering
@@ -338,6 +340,155 @@ Generate structured task cards from text input using AI with automatic execution
 ```
 
 **🆕 Enhanced with Execution Procedures**: Each generated task automatically includes AI-powered execution guidance. Procedures are generated in background and can be retrieved via `GET /api/tasks/{task_id}/execution-procedures`.
+```
+
+### 🆕 Two-Stage Task Preview System
+
+#### POST /api/tasks/generate-preview
+Generate task preview from text input using AI **without saving to database**. Part of the two-stage workflow for user review and editing before confirmation.
+
+**🎯 Workflow Stage**: **Stage 1** - Preview Generation (no database save)
+
+**Request Body:**
+```json
+{
+  "text": "明天需要完成季度报告，下周三要参加项目评审会议，还要安排团队培训"
+}
+```
+
+**Response:**
+```json
+{
+  "tasks": [
+    {
+      "title": "完成季度报告",
+      "content": "准备和完成本季度的工作报告，包括数据分析和总结",
+      "deadline": "2025-01-02T23:59:59Z",
+      "assignee": null,
+      "participant": "你",
+      "urgency": "high",
+      "importance": "high",
+      "difficulty": 7
+    },
+    {
+      "title": "参加项目评审会议",
+      "content": "参加下周三的项目评审会议，准备相关材料",
+      "deadline": "2025-01-08T14:00:00Z",
+      "assignee": null,
+      "participant": "你",
+      "urgency": "high",
+      "importance": "high",
+      "difficulty": 4
+    }
+  ],
+  "message": "已生成 2 个任务预览，请确认后保存"
+}
+```
+
+**Key Features:**
+- **No Database Operations**: Tasks are not saved until user confirms
+- **Full AI Analysis**: Uses same AI intelligence as regular generation
+- **User Context Integration**: Leverages user profile and colleague relationships
+- **Editable Preview**: All task properties can be modified in frontend popup
+
+**Error Responses:**
+```json
+{
+  "detail": "Text input is required"
+}
+```
+
+#### POST /api/tasks/confirm-tasks
+Confirm and save preview tasks to database with automatic execution procedure and social intelligence advice generation.
+
+**🎯 Workflow Stage**: **Stage 2** - Task Confirmation (database save + AI guidance)
+
+**Request Body:**
+```json
+{
+  "tasks": [
+    {
+      "title": "完成季度报告",
+      "content": "准备和完成本季度的工作报告，包括数据分析和总结",
+      "deadline": "2025-01-02T23:59:59Z",
+      "assignee": null,
+      "participant": "你",
+      "urgency": "high",
+      "importance": "high",
+      "difficulty": 7
+    },
+    {
+      "title": "参加项目评审会议",
+      "content": "参加下周三的项目评审会议，准备相关材料",
+      "deadline": "2025-01-08T14:00:00Z",
+      "assignee": "项目经理",
+      "participant": "你",
+      "urgency": "high",
+      "importance": "high",
+      "difficulty": 4
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 25,
+    "title": "完成季度报告",
+    "content": "准备和完成本季度的工作报告，包括数据分析和总结",
+    "deadline": "2025-01-02T23:59:59Z",
+    "assignee": null,
+    "participant": "你",
+    "urgency": "high",
+    "importance": "high",
+    "difficulty": 7,
+    "source": "ai_generated",
+    "status": "pending",
+    "execution_procedures": null,
+    "social_advice": null,
+    "created_at": "2025-09-05T08:30:00Z",
+    "updated_at": "2025-09-05T08:30:00Z"
+  },
+  {
+    "id": 26,
+    "title": "参加项目评审会议",
+    "content": "参加下周三的项目评审会议，准备相关材料",
+    "deadline": "2025-01-08T14:00:00Z",
+    "assignee": "项目经理",
+    "participant": "你",
+    "urgency": "high",
+    "importance": "high",
+    "difficulty": 4,
+    "source": "ai_generated",
+    "status": "pending",
+    "execution_procedures": null,
+    "social_advice": null,
+    "created_at": "2025-09-05T08:30:00Z",
+    "updated_at": "2025-09-05T08:30:00Z"
+  }
+]
+```
+
+**Background Processing:**
+- **Execution Procedures**: Generated automatically for each confirmed task
+- **Social Intelligence Advice**: Generated after execution procedures complete
+- **3-Step AI Workflow**: Task creation → Execution procedures → Social advice
+- **Retrieval**: Use `GET /api/tasks/{task_id}/execution-procedures` and `GET /api/tasks/{task_id}/social-advice`
+
+**Two-Stage Workflow Benefits:**
+- **User Control**: Review and edit AI-generated tasks before saving
+- **No Database Pollution**: Failed generations don't create database entries
+- **Enhanced Accuracy**: Correct AI interpretations before storage
+- **Visual Feedback**: Priority badges, difficulty sliders, validation in frontend
+- **Batch Operations**: Confirm multiple tasks with individual editing
+
+**Error Responses:**
+```json
+{
+  "detail": "No tasks provided for confirmation"
+}
 ```
 
 ### OCR Image-to-Task Generation
@@ -920,6 +1071,44 @@ The `execution_procedures` field contains an array of structured execution steps
   ]
 }
 ```
+
+### 🆕 Task Preview Models
+
+#### TaskPreview Model
+Task preview data for two-stage workflow (no database fields):
+```json
+{
+  "title": "string (max 200 chars)",
+  "content": "string (max 1000 chars)", 
+  "deadline": "datetime|null",
+  "assignee": "string|null",
+  "participant": "string (default: '你')",
+  "urgency": "enum: low|high",
+  "importance": "enum: low|high", 
+  "difficulty": "integer (1-10)"
+}
+```
+
+#### TaskPreviewResponse Model
+Response containing preview tasks and message:
+```json
+{
+  "tasks": "[TaskPreview]",
+  "message": "string (default: '任务预览生成成功，请确认后保存')"
+}
+```
+
+#### TaskConfirmRequest Model
+Request to confirm and save preview tasks:
+```json
+{
+  "tasks": "[TaskCreate]"
+}
+```
+
+**Two-Stage Workflow:**
+1. **Preview Stage**: `POST /api/tasks/generate-preview` → `TaskPreviewResponse`
+2. **Confirmation Stage**: `POST /api/tasks/confirm-tasks` → `[TaskResponse]`
 
 ### AI Provider Model
 ```json

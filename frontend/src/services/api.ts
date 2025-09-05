@@ -4,6 +4,9 @@ import type {
   Task, 
   TaskCreate, 
   TaskUpdate, 
+  TaskPreview,
+  TaskPreviewResponse,
+  TaskConfirmRequest,
   AIProvider, 
   AIProviderCreate, 
   ChatSession, 
@@ -131,6 +134,16 @@ export const authApi = {
 export const tasksApi = {
   generateFromText: async (text: string): Promise<Task[]> => {
     const response = await api.post('/tasks/generate', { text })
+    return response.data
+  },
+
+  generatePreview: async (text: string): Promise<TaskPreviewResponse> => {
+    const response = await api.post('/tasks/generate-preview', { text })
+    return response.data
+  },
+
+  confirmTasks: async (tasks: TaskCreate[]): Promise<Task[]> => {
+    const response = await api.post('/tasks/confirm-tasks', { tasks })
     return response.data
   },
   

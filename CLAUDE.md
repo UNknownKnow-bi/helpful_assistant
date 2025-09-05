@@ -115,9 +115,16 @@ cd backend && python3 open_docs.py
 
 ### 1. AI Task Card Generation (任务卡片生成)
 
-**✅ ENHANCED: User Profile-Integrated Task Generation**
+**✅ ENHANCED: Two-Stage Task Preview & Confirmation System**
 
-**Functionality:**
+**🆕 Two-Stage Workflow (Latest Update):**
+- **Stage 1: Preview Generation** - AI generates task data without database save, displayed in interactive popup
+- **Stage 2: Task Confirmation** - User reviews, edits, and confirms tasks before saving to database
+- **Full Editing Capability** - All task properties (title, content, deadline, assignee, participant, urgency, importance, difficulty) editable in preview mode
+- **Real-time Validation** - Visual feedback with priority badges, difficulty sliders, and form validation
+- **No Database Pollution** - Failed or unwanted generations don't create database entries
+
+**Core Functionality:**
 - Accept Chinese text input from users OR image uploads with OCR text extraction
 - Use AI to parse and extract task information using **Eisenhower Matrix** evaluation with **user profile context**
 - Generate structured task cards with enhanced JSON schema(single or multi-task)
@@ -128,13 +135,22 @@ cd backend && python3 open_docs.py
 - **🆕 Context-Aware Priority Assessment**: Importance evaluation considering user's career stage and role responsibilities
 - OCR Integration: EasyOCR-powered image text extraction with Chinese/English support
 
+**🆕 Task Preview System:**
+- **Interactive Preview Popup**: Full-screen popup with editable task cards
+- **Comprehensive Editing**: Inline editing of all task fields with real-time updates
+- **Visual Priority System**: Color-coded urgency/importance badges with dropdown selection
+- **Difficulty Visualization**: Star-based difficulty display with interactive slider
+- **Date/Time Picker**: Integrated datetime-local input for deadline selection
+- **Form Validation**: Real-time validation with disabled save for invalid tasks
+- **Batch Operations**: Confirm and save multiple tasks simultaneously
+
 **🧠 Enhanced AI Prompt System:**
 - **User Context Integration**: Includes name, work nickname, job type, job level, management status
 - **Colleague Recognition**: Utilizes work relationships database for assignee/participant identification  
 - **Personalized Difficulty Scaling**: Adjusts task complexity based on user's professional experience
 - **Role-Aware Importance Assessment**: Considers career impact and growth value for different job levels
 
-**📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details, request/response schemas, and usage examples.
+**📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details, request/response schemas, usage examples, and two-stage workflow implementation.
 ### 2. AI Service Configuration (AI配置)
 
 **✅ ENHANCED: Model Categorization System (文本模型/图像模型)**
@@ -175,8 +191,6 @@ cd backend && python3 open_docs.py
 **💬 API Reference:** See [Chat API Documentation](backend/API_DOCUMENTATION.md#chat-apis) for complete WebSocket usage, endpoint details, message schemas, and real-time streaming examples.
 
 **Chat Session Management:**
-- `POST /api/chat/sessions/{session_id}/generate-title` - Auto-generate session title from first message
-- `PUT /api/chat/sessions/{session_id}/title` - Manual session renaming
 - Auto-title generation triggered on first user message with AI-powered naming (≤10 characters)
 - Right-click context menu for manual session renaming in frontend
 
@@ -206,7 +220,6 @@ cd backend && python3 open_docs.py
 
 **Frontend Stop Handling:**
 - **React State**: `isStreaming` state controls UI button switching
-- **API Integration**: `POST /api/chat/sessions/{id}/stop` endpoint
 - **Error Recovery**: Proper fallback handling if stop request fails
 - **Immediate Response**: UI updates instantly without waiting for server confirmation
 
@@ -380,14 +393,7 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **Risk Assessment**: Identifies potential social traps and relationship obstacles
 - **Context Integration**: Considers user's career stage, management status, and team relationships
 
-**📋 API Endpoints:**
-- `POST /api/tasks` - Create task with automatic execution procedures + social advice generation
-- `POST /api/tasks/generate` - AI task generation with execution procedures + social advice
-- `POST /api/tasks/generate-from-image` - Image-to-task with execution procedures + social advice
-- `GET /api/tasks/{id}/execution-procedures` - Retrieve execution procedures
-- `POST /api/tasks/{id}/regenerate-execution-procedures` - Manual regeneration
-- **🆕 `GET /api/tasks/{id}/social-advice`** - Retrieve social intelligence advice
-- **🆕 `POST /api/tasks/{id}/generate-social-advice`** - Generate social advice for existing tasks
+**📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details and [Social Intelligence API](backend/API_DOCUMENTATION.md) for execution procedures and social advice endpoints.
 
 **🗄️ Database Integration:**
 - **Dual Columns**: Added `execution_procedures` and `social_advice` TEXT columns to tasks table
@@ -405,38 +411,6 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 6. **🆕 Social Database Storage**: Social advice stored as JSON in SQLite
 7. **API Access**: Both procedures and social advice available via dedicated endpoints
 8. **Manual Override**: Users can regenerate both procedures and social advice independently
-
-**🎯 Execution Procedures Output Structure:**
-```json
-[
-  {
-    "procedure_number": 1,
-    "procedure_content": "分析上次数据回刷导致数据缺失的根本原因",
-    "key_result": "完成数据缺失分析报告，明确缺失数据的时间段和受影响字段"
-  },
-  {
-    "procedure_number": 2, 
-    "procedure_content": "检查当前mid表的生命周期设置",
-    "key_result": "获取当前mid表生命周期配置文档，识别需要调整的参数"
-  }
-]
-```
-
-**🆕 Social Intelligence Advice Output Structure:**
-```json
-[
-  {
-    "procedure_number": 1,
-    "procedure_content": "在生产环境中执行mid表生命周期配置修改",
-    "social_advice": "关键互动对象：运维或数据工程师；可能的反应预测：他们可能担心变更影响生产环境稳定性；最佳沟通策略：通过正式邮件或会议提前沟通，强调已测试验证和回滚方案，避免直接操作；潜在的社交陷阱：未经沟通直接修改可能引发冲突，建议先获得批准。"
-  },
-  {
-    "procedure_number": 2,
-    "procedure_content": "验证回刷后数据的完整性和准确性",
-    "social_advice": "null"
-  }
-]
-```
 
 **🔧 Technical Implementation:**
 - **Enhanced AI Service**: `generate_task_execution_guidance()` and `generate_social_advice()` methods
@@ -487,147 +461,11 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 7. **Task Execution Guidance** (Week 7): ✅ **ENHANCED & COMPLETED** - **🆕 3-Step AI Workflow**: Task Execution Procedures + Social Intelligence Advice System, automatic dual AI generation, user context integration, background processing with database session management
 8. **Testing & Polish** (Week 8-9): ⏳ **IN PROGRESS** - Social intelligence system testing, performance optimization, deployment preparation
 
-
-## ✅ Recent Updates - Social Intelligence & Execution System
-
-**✅ COMPLETED (2025-09-04): AI-Powered Social Intelligence Advice System**
-
-**🧠 3-Step AI Workflow Enhancement:**
-- **Dual AI Analysis**: Every task now gets BOTH execution procedures AND social intelligence advice automatically
-- **Social Intelligence**: Advanced organizational psychology AI provides personality-aware communication strategies
-- **Background Task Fix**: Resolved database session management issues preventing automatic generation
-- **Complete Integration**: Works seamlessly across manual tasks, AI-generated tasks, and image-to-task workflows
-- **Frontend UI**: New tabbed popup interface displays both execution steps and social advice
-
-**🆕 Social Intelligence Features:**
-- **Big Five Analysis**: Analyzes colleague personalities using OCEAN psychological model
-- **Communication Strategies**: Provides specific wording, channels, and approach recommendations
-- **Risk Assessment**: Identifies potential social traps and relationship obstacles
-- **Context Integration**: Considers user's career stage, management status, and team relationships
-- **Personality-Aware Guidance**: Tailored advice based on colleague personality profiles
-
-**✅ COMPLETED (2025-09-03): AI-Powered Task Execution Guidance Workflow**
-
-**🤖 Execution Procedures Foundation:**
-- **Automatic Execution Procedures**: Every task gets AI-generated execution steps after creation
-- **Professional Methodology**: Based on SMART/RACI project management principles
-- **User Context Integration**: Leverages user profile, job level, and colleague relationships for personalized guidance
-- **Background Processing**: Non-blocking asyncio implementation for optimal performance
-- **Multi-Integration**: Works across manual tasks, AI-generated tasks, and image-to-task workflows
-
-**📄 Enhanced Database & API Integration:**
-- **Dual Database Migration**: Added both `execution_procedures` and `social_advice` TEXT columns to tasks table
-- **SQLite Compatibility**: Proper JSON serialization/deserialization for dual data structures
-- **Enhanced API Endpoints**: 
-  - `GET /api/tasks/{id}/execution-procedures` - Retrieve execution procedures
-  - `POST /api/tasks/{id}/regenerate-execution-procedures` - Manual regeneration
-  - **🆕 `GET /api/tasks/{id}/social-advice`** - Retrieve social intelligence advice
-  - **🆕 `POST /api/tasks/{id}/generate-social-advice`** - Generate social advice for existing tasks
-- **Enhanced Pydantic Integration**: Field validators for automatic JSON parsing of both data structures
-
-**🔧 Enhanced Technical Implementation:**
-- **Dual AI Services**: Both `generate_task_execution_guidance()` and `generate_social_advice()` methods
-- **🆕 Advanced Psychology Prompts**: Sophisticated organizational psychology and Big Five personality analysis
-- **Database Session Management**: Fixed asyncio background tasks with individual SessionLocal() instances
-- **Sequential AI Workflow**: Execution procedures → social advice generation pipeline
-- **Error Handling**: Graceful fallbacks for both AI services when providers unavailable
-- **Enhanced Frontend**: TaskProcedurePopup component with tabbed interface and API integration
-
-**🎯 Enhanced Production Testing:**
-- **🆕 Dual AI Validation**: Successfully tested with tasks generating both execution procedures AND social advice
-- **Live Social Intelligence**: Confirmed AI-generated personality-aware communication strategies
-- **Background Task Fix**: Verified automatic generation now works correctly for new tasks (e.g., "整理办公室文档")
-- **End-to-End Workflow**: Complete 3-step integration from task creation to dual AI guidance display
-- **Frontend Integration**: Confirmed tabbed popup interface displays both procedures and social advice correctly
-
-**📊 Enhanced User Benefits:**
-- **Dual Intelligence**: Users get both operational execution steps AND social intelligence guidance automatically
-- **Context-Aware**: Both procedures and social advice tailored to user's role, level, and team relationships
-- **🆕 Social Success**: Maximizes workplace collaboration through personality-aware communication strategies
-- **Professional Quality**: Combines project management (SMART/RACI) + organizational psychology best practices
-- **Risk Mitigation**: Proactively identifies and prevents interpersonal obstacles before they occur
-- **Time Efficiency**: Eliminates both manual task planning AND social strategy development effort
-
----
-
-**✅ COMPLETED (2025-08-21): Enhanced Token Authentication System with 24-Hour Expiry**
-
-**🔐 Token Management Improvements:**
-- **Extended Token Validity**: Token expiration time increased from 30 minutes to 24 hours (1440 minutes)
-- **Automatic Token Refresh**: Smart API interceptor automatically refreshes expired tokens without user intervention
-- **Refresh Endpoint**: New `POST /auth/refresh` endpoint for seamless token renewal
-- **Intelligent Error Handling**: Only redirects to login when token refresh fails, maintaining user session continuity
-- **Anti-Loop Protection**: Prevents infinite refresh attempts with retry flag mechanism
-
-**Implementation Details:**
-- **Backend Changes**:
-  - `config.py`: Updated `access_token_expire_minutes` from 30 to 1440
-  - `auth_sqlite.py`: Added `/auth/refresh` endpoint with proper error handling
-- **Frontend Changes**:
-  - `api.ts`: Enhanced response interceptor with automatic token refresh logic
-  - `authStore.ts`: Added `refreshToken` method for state management
-  - Seamless user experience with transparent token maintenance
-
-**User Experience Benefits:**
-- Users stay logged in for 24 hours without interruption
-- Automatic background token refresh prevents unexpected logouts
-- Reduced login friction and improved productivity workflow
-
-**✅ COMPLETED (2025-08-25): Authentication System Bug Fixes**
-
-**🔧 Critical Authentication Fixes:**
-- **Fixed Infinite Token Refresh Loop**: Resolved issue where expired tokens caused endless refresh attempts
-- **Enhanced Refresh Endpoint**: Modified `/auth/refresh` to accept expired tokens for proper renewal
-- **Login Flow Protection**: API interceptor now skips token refresh for login/register endpoints
-- **Proper Error Propagation**: Login failures now show correct error messages instead of getting stuck
-
-**Technical Implementation:**
-- **Backend (`auth_sqlite.py`)**:
-  - Updated refresh endpoint to decode tokens with `verify_exp: False`
-  - Added proper JWT error handling for truly invalid tokens
-  - Validates user existence without requiring authenticated user object
-- **Frontend (`api.ts`)**:
-  - Added endpoint filtering to skip interceptor for `/auth/login` and `/auth/register`
-  - Enhanced error logging and auth state cleanup
-  - Prevents interference between login flow and token refresh logic
-
-**Issues Resolved:**
-- ✅ Users can now login successfully without getting stuck in "登录中..." state
-- ✅ Token expiration properly triggers logout when refresh fails
-- ✅ 403 Forbidden errors on expired tokens now handled gracefully
-- ✅ Login failures show proper error messages to users
-
-**✅ COMPLETED (2025-08-20): Enhanced AI Model Selection System**
-
 ## Next Priority Tasks
 
 **🔄 Current Focus:**
 
-1. **✅ AI Task Execution Guidance Workflow** (COMPLETED)
-   - ✅ 2-step AI workflow implementation
-   - ✅ Automatic execution procedure generation
-   - ✅ User context integration with profile and relationships
-   - ✅ Professional project management methodology
-   - ✅ Background processing with asyncio
-   - ✅ Database migration and API endpoints
-   - ✅ Production testing and validation
-
-2. **Advanced Task Features** 
-   - Task dependencies and subtask management
-   - Progress tracking and milestone management
-   - Integration with calendar systems for deadline management
-   - Task templates based on execution procedures
-   - Team collaboration features for shared tasks
-
-3. **System Polish & Optimization**
-   - Comprehensive end-to-end testing across all features
-   - Performance optimization for large-scale task management
-   - Enhanced error handling and user feedback systems
-   - Deployment preparation and production optimization
-- to memorize
-- to memorize
-- to memorize
-- to memorize
-- to memorize
-- to
-- to
+1.Prompt polish
+ - mostly used user's personality in working;
+2.UI polish
+ - get new UI framework and frontend display;

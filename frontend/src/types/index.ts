@@ -58,6 +58,27 @@ export interface TaskUpdate {
   status?: 'pending' | 'in_progress' | 'completed'
 }
 
+// Task Preview Types for two-stage creation
+export interface TaskPreview {
+  title: string
+  content: string
+  deadline?: string
+  assignee?: string
+  participant: string
+  urgency: 'low' | 'high'
+  importance: 'low' | 'high'
+  difficulty: number
+}
+
+export interface TaskPreviewResponse {
+  tasks: TaskPreview[]
+  message: string
+}
+
+export interface TaskConfirmRequest {
+  tasks: TaskCreate[]
+}
+
 export interface AIProvider {
   id: number
   name: string

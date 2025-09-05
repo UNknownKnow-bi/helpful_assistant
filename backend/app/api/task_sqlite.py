@@ -7,6 +7,7 @@ from app.database.sqlite_connection import SessionLocal
 from app.database.sqlite_models import Task as TaskModel, User
 from app.models.sqlite_models import (
     TaskCreate, TaskUpdate, TaskResponse, Task,
+    TaskPreview, TaskPreviewResponse, TaskConfirmRequest,
     UserResponse
 )
 from app.core.auth_sqlite import get_current_user
@@ -482,6 +483,182 @@ async def generate_task_from_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate task: {str(e)}"
+        )
+
+# AI-powered Task Generation Preview (without saving to database)
+@router.post("/generate-preview", response_model=TaskPreviewResponse)
+async def generate_task_preview_from_text(
+    request: Dict[str, str],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate preview task cards from Chinese text using AI (supports multiple tasks) - NO DATABASE SAVE"""
+    text = request.get("text", "").strip()
+    if not text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text input is required"
+        )
+    
+    try:
+        # Use AI service to extract task information (returns list) - same as generate endpoint
+        tasks_data = await ai_service_sqlite.generate_task_from_text(
+            user_id=current_user.id,
+            text=text,
+            db=db
+        )
+        
+        # Create preview tasks (NO DATABASE OPERATIONS)
+        preview_tasks = []
+        for task_data in tasks_data:
+            preview_task = TaskPreview(
+                title=task_data.get("title", text[:8] if len(text) <= 8 else text[:7] + "..."),
+                content=task_data.get("content", text),
+                deadline=task_data.get("deadline"),
+                assignee=task_data.get("assignee"),
+                participant=task_data.get("participant", "你"),
+                urgency=task_data.get("urgency", "low"),
+                importance=task_data.get("importance", "low"),
+                difficulty=task_data.get("difficulty", 5)
+            )
+            preview_tasks.append(preview_task)
+        
+        return TaskPreviewResponse(
+            tasks=preview_tasks,
+            message=f"已生成 {len(preview_tasks)} 个任务预览，请确认后保存"
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate task preview: {str(e)}"
+        )
+
+# Task Confirmation API (save preview tasks to database)
+@router.post("/confirm-tasks", response_model=List[TaskResponse])
+async def confirm_and_save_tasks(
+    request: TaskConfirmRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Confirm and save preview tasks to database with execution procedures generation"""
+    if not request.tasks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No tasks provided for confirmation"
+        )
+    
+    try:
+        # Create tasks from confirmed preview data
+        created_tasks = []
+        for task_data in request.tasks:
+            db_task = TaskModel(
+                user_id=current_user.id,
+                title=task_data.title,
+                content=task_data.content,
+                deadline=task_data.deadline,
+                assignee=task_data.assignee,
+                participant=task_data.participant,
+                urgency=task_data.urgency,
+                importance=task_data.importance,
+                difficulty=task_data.difficulty,
+                source="ai_generated"  # Since this comes from AI preview
+            )
+            
+            db.add(db_task)
+            db.flush()  # Flush to get ID for logging
+            created_tasks.append(db_task)
+        
+        # Commit all tasks at once
+        db.commit()
+        
+        # Refresh all tasks to get updated data
+        for task in created_tasks:
+            db.refresh(task)
+        
+        # Generate procedures and social advice for each task in parallel (same as original generate endpoint)
+        import asyncio
+        async def generate_full_guidance_for_confirmed_task(task_id: int, user_id: int):
+            # Create a new database session for the background task
+            background_db = SessionLocal()
+            try:
+                logger.info(f"Starting background generation for confirmed task {task_id}")
+                
+                # Get the task from the new database session
+                background_task = background_db.query(TaskModel).filter(TaskModel.id == task_id).first()
+                if not background_task:
+                    logger.error(f"Confirmed task {task_id} not found in background task")
+                    return
+                
+                logger.info(f"Generating execution procedures for confirmed task {task_id}")
+                
+                task_info = {
+                    "content": background_task.content,
+                    "deadline": background_task.deadline.isoformat() if background_task.deadline else None,
+                    "assignee": background_task.assignee,
+                    "participant": background_task.participant,
+                    "urgency": background_task.urgency,
+                    "importance": background_task.importance,
+                    "difficulty": background_task.difficulty
+                }
+                
+                execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
+                    user_id=user_id,
+                    task_data=task_info,
+                    db=background_db
+                )
+                
+                # Update task with execution procedures (serialize to JSON string for SQLite)
+                import json
+                background_task.execution_procedures = json.dumps(execution_procedures) if execution_procedures else None
+                background_db.commit()
+                
+                logger.info(f"Successfully generated {len(execution_procedures)} execution procedures for confirmed task {task_id}")
+                
+                # Generate social advice based on execution procedures
+                if execution_procedures:
+                    try:
+                        logger.info(f"Generating social advice for confirmed task {task_id}")
+                        
+                        social_advice = await ai_service_sqlite.generate_social_advice(
+                            user_id=user_id,
+                            task_data=task_info,
+                            execution_procedures=execution_procedures,
+                            db=background_db
+                        )
+                        
+                        # Update task with social advice (serialize to JSON string for SQLite)
+                        background_task.social_advice = json.dumps(social_advice) if social_advice else None
+                        background_db.commit()
+                        
+                        logger.info(f"Successfully generated {len(social_advice)} social advice items for confirmed task {task_id}")
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to generate social advice for confirmed task {task_id}: {e}")
+                        logger.exception("Full social advice generation error:")
+                
+            except Exception as e:
+                logger.error(f"Failed to generate execution procedures for confirmed task {task_id}: {e}")
+                logger.exception("Full execution guidance generation error:")
+            finally:
+                background_db.close()
+        
+        # Generate full guidance for all tasks in background (don't await to avoid blocking response)
+        for task in created_tasks:
+            asyncio.create_task(generate_full_guidance_for_confirmed_task(task.id, current_user.id))
+        
+        return created_tasks
+        
+    except Exception as e:
+        db.rollback()  # Rollback in case of error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to confirm and save tasks: {str(e)}"
         )
 
 # OCR Text Extraction Only (Preview Step)
