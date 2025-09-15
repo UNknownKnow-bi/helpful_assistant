@@ -206,12 +206,6 @@ cd backend && python3 open_docs.py
 
 **🛑 Manual Stop Functionality (手动停止功能):**
 
-**Stop Button Implementation:**
-- **UI Behavior**: Send button transforms into red stop button during streaming
-- **Input State**: Shows "AI正在回复中..." placeholder and disables input
-- **Visual Feedback**: Immediate UI response when stop button clicked
-- **Status Display**: Messages show "响应已中断" after stopping
-
 **Backend Stop Processing:**
 - **Task Cancellation**: `asyncio.Task.cancel()` gracefully stops AI processing
 - **Database Updates**: Streaming messages marked as "interrupted" in SQLite
@@ -377,22 +371,6 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **Multiple Integration Points**: Works with manual tasks, AI-generated tasks, and image-to-task workflows
 - **🆕 Social Intelligence**: Personality-aware communication strategies for workplace interactions
 
-**🧠 Dual AI Prompt Systems:**
-
-**Execution Procedures AI:**
-- **Professional Role**: Project management expert with SMART/RACI methodology expertise
-- **Objective Focus**: 100% task-oriented breakdown, ignoring soft interpersonal factors
-- **User Context Aware**: Integrates name, job type, level, management status, and colleague relationships
-- **Structured Methodology**: Breaks complex tasks into logical phases with actionable steps
-- **Key Results Oriented**: Each step includes specific deliverable outcomes
-
-**🆕 Social Intelligence AI:**
-- **Professional Role**: Top organizational psychologist and workplace EQ coach with Big Five expertise
-- **Psychology Focus**: Analyzes colleague personalities and predicts interpersonal dynamics
-- **Communication Strategy**: Provides specific wording, channels, and approach recommendations
-- **Risk Assessment**: Identifies potential social traps and relationship obstacles
-- **Context Integration**: Considers user's career stage, management status, and team relationships
-
 **📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details and [Social Intelligence API](backend/API_DOCUMENTATION.md) for execution procedures and social advice endpoints.
 
 **🗄️ Database Integration:**
@@ -450,22 +428,67 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
   - Big Five personality assessment and comprehensive work relationship tracking
   - Extended WorkRelationship schema with work_nickname, job_type, job_level, and personality dimensions
   - Auto-save form state models with localStorage persistence schemas
+
+## 🔧 AI Service Architecture Refactoring
+
+**✅ COMPLETED** - Comprehensive refactoring of `ai_service_sqlite.py` following professional software architecture principles with 5-step orchestrator pattern.
+
+### **Core Improvements**
+
+**🏗️ Service Abstractions:**
+- **`_make_ai_request()`** - Unified AI API interface with dynamic timeout configuration based on model type
+- **`_extract_and_clean_json()`** - Smart JSON parsing with markdown code block detection and JavaScript comment cleanup
+- **`_build_user_context_string()`** - Standardized user context formatting for consistent AI prompt integration
+- **`_handle_ai_error()`** - Unified error handling with graceful fallbacks across all AI operations
+- **`_get_timeout_config()`** - Dynamic timeout selection (2-5 minutes) based on reasoning vs regular models
+
+**🎯 Prompt Engineering Separation:**
+- **`_build_task_extraction_prompt()`** - Eisenhower Matrix task generation with user profile context
+- **`_build_title_generation_prompt()`** - Session title generation with 10-character limit
+- **`_build_execution_guidance_prompt()`** - SMART/RACI methodology for task procedures
+- **`_build_social_advice_prompt()`** - Big Five personality-based social intelligence advice
+- **`_build_ocr_prompt()`** - Chinese/English text extraction from images
+
+**⚙️ Configuration Management:**
+- **Class Constants**: `DEFAULT_TIMEOUT`, `EXTENDED_TIMEOUT`, `DEFAULT_MAX_TOKENS`, `TITLE_MAX_TOKENS`
+- **Dynamic Token Limits**: Adaptive max_tokens based on model capabilities and task requirements
+- **Reasoning Model Support**: Enhanced timeout and token allocation for DeepSeek-R1 reasoning models
+
+### **Orchestrator Pattern Implementation**
+
+**🎼 Method Transformation:**
+- **`generate_task_from_text()`** - Refactored to 7-step orchestrator: Provider → Context → Prompt → Request → Parse → Validate → Return
+- **`generate_session_title()`** - Streamlined to 4-step pattern: Provider → Prompt → Request → Clean
+- **Clear Separation**: Data gathering → Prompt building → AI request → Response processing
+
 ## Development Phases
 
 1. **Foundation Setup** (Week 1): ✅ **COMPLETED** - FastAPI backend setup, database models, authentication
-2. **AI Service Layer** (Week 2): ✅ **COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration, full CRUD operations, **✅ Model categorization system**
+2. **AI Service Layer** (Week 2): ✅ **ENHANCED & COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration, full CRUD operations, **✅ Model categorization system**, **🆕 Comprehensive architecture refactoring**
 3. **Task Generation** (Week 3): ✅ **COMPLETED** - Full AI-powered multi-task generation, CRUD operations, UI integration, **🆕 EasyOCR image support**
 4. **Chat Interface** (Week 4): ✅ **COMPLETED** - Real-time chat, WebSocket streaming, thinking blocks, SQLite persistence, **✅ Dynamic model selection**
 5. **User Profiling** (Week 5): ✅ **ENHANCED & COMPLETED** - **🆕 Comprehensive colleague management system**, Big Five personality assessment, enhanced work relationship tracking, enterprise-grade form persistence
 6. **Frontend Integration** (Week 6): ✅ **COMPLETED** - Complete UI with task management, chat integration, responsive design, **✅ Categorized AI Config interface**
 7. **Task Execution Guidance** (Week 7): ✅ **ENHANCED & COMPLETED** - **🆕 3-Step AI Workflow**: Task Execution Procedures + Social Intelligence Advice System, automatic dual AI generation, user context integration, background processing with database session management
-8. **Testing & Polish** (Week 8-9): ⏳ **IN PROGRESS** - Social intelligence system testing, performance optimization, deployment preparation
+8. **Code Architecture & Optimization** (Week 8): ✅ **COMPLETED** - **🆕 AI Service Layer Refactoring**: 5-step orchestrator pattern, service abstractions, prompt engineering separation, enhanced error handling, code quality improvements
+9. **Testing & Polish** (Week 9-10): ⏳ **IN PROGRESS** - System integration testing, performance optimization, deployment preparation
 
 ## Next Priority Tasks
 
 **🔄 Current Focus:**
 
-1.Prompt polish
- - mostly used user's personality in working;
-2.UI polish
- - get new UI framework and frontend display;
+1. **Prompt Engineering Optimization**
+   - Fine-tune AI prompts for better personality-aware task analysis
+   - Enhance social intelligence accuracy with more nuanced Big Five integration
+   - Optimize reasoning model prompt strategies for DeepSeek-R1
+
+2. **UI/UX Enhancement**
+   - Implement modern UI framework upgrade (shadcn/ui v2 or similar)
+   - Enhance visual design consistency across all components
+   - Improve responsive design for mobile/tablet experiences
+   - Add progressive web app (PWA) capabilities
+
+3. **Performance & Scalability**
+   - Database query optimization for large dataset handling
+   - AI request caching strategies for frequently used operations
+   - WebSocket connection pooling and management improvements

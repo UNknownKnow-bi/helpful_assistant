@@ -11,6 +11,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AIServiceSQLite:
+    # Configuration Constants
+    DEFAULT_TIMEOUT = httpx.Timeout(connect=30.0, read=120.0, write=30.0, pool=30.0)
+    EXTENDED_TIMEOUT = httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0)
+    DEFAULT_MAX_TOKENS = 2000
+    TITLE_MAX_TOKENS = 100
+    
     def __init__(self):
         self.models_cache = {}
     
@@ -47,6 +53,299 @@ class AIServiceSQLite:
                 payload["presence_penalty"] = config["presence_penalty"]
         
         return payload
+
+    def _get_timeout_config(self, config: Dict[str, Any]) -> httpx.Timeout:
+        """Get appropriate timeout configuration based on model type"""
+        model = config.get("model", "")
+        if "deepseek-reasoner" in model:
+            return self.EXTENDED_TIMEOUT
+        return self.DEFAULT_TIMEOUT
+
+    async def _make_ai_request(self, provider: AIProvider, messages: List[Dict[str, Any]], 
+                              stream: bool = False, max_tokens_override: Optional[int] = None) -> Dict[str, Any]:
+        """Unified AI API request handler with error management"""
+        try:
+            config = provider.config
+            timeout = self._get_timeout_config(config)
+            
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                # Build payload using user configuration
+                payload = self._build_payload(config, messages, stream=stream, max_tokens_override=max_tokens_override)
+                
+                headers = {
+                    "Authorization": f"Bearer {config.get('api_key', '')}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = await client.post(
+                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
+                    json=payload,
+                    headers=headers
+                )
+                
+                if response.status_code != 200:
+                    error_text = response.text
+                    raise Exception(f"AI API error {response.status_code}: {error_text}")
+                
+                return response.json()
+                
+        except Exception as e:
+            logger.error(f"AI request failed: {e}")
+            raise
+
+    def _extract_and_clean_json(self, ai_response: str) -> Any:
+        """Extract and clean JSON from AI response with intelligent parsing"""
+        try:
+            import re
+            
+            # First try to extract from markdown code block (support both objects and arrays)
+            markdown_match = re.search(r'```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```', ai_response, re.DOTALL)
+            if markdown_match:
+                json_str = markdown_match.group(1)
+                logger.info(f"Extracted JSON from markdown block")
+            else:
+                # Fallback to direct JSON extraction (support both objects and arrays)
+                json_match = re.search(r'(\[.*?\]|\{.*?\})', ai_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group()
+                    logger.info(f"Extracted JSON directly from response")
+                else:
+                    raise ValueError("No JSON found in response")
+            
+            # Clean up JavaScript-style comments that are invalid in JSON
+            # Remove // single-line comments
+            json_str = re.sub(r'//.*?(?=\n|$)', '', json_str, flags=re.MULTILINE)
+            # Remove /* multi-line comments */
+            json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+            # Clean up any trailing commas that might be left after comment removal
+            json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+            
+            return json.loads(json_str)
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"JSON parsing error: {e}, AI response: {ai_response}")
+            raise
+
+    def _build_user_context_string(self, user_context: Dict[str, Any]) -> str:
+        """Build standardized user context string for AI prompts"""
+        user_info = user_context["user_info"]
+        
+        # Build colleague context string
+        colleague_context = ""
+        if user_context["colleagues"]:
+            colleague_names = []
+            for colleague in user_context["colleagues"]:
+                name_info = colleague["name"]
+                if colleague["work_nickname"]:
+                    name_info += f"（{colleague['work_nickname']}）"
+                name_info += f" - {colleague['relationship_type']}"
+                if colleague["job_type"]:
+                    name_info += f"，{colleague['job_type']}"
+                colleague_names.append(name_info)
+            colleague_context = f"\n用户的同事关系：{'; '.join(colleague_names)}"
+
+        return f"""
+用户信息：
+- 姓名：{user_info['name']}
+- 工作昵称：{user_info['work_nickname'] or '无'}
+- 职位类型：{user_info['job_type'] or '未知'}
+- 职位级别：{user_info['job_level'] or '未知'}
+- 管理层：{'是' if user_info['is_manager'] else '否'}{colleague_context}"""
+
+    def _handle_ai_error(self, error: Exception, fallback_data: Any = None) -> Any:
+        """Unified error handling with fallback data"""
+        import traceback
+        logger.error(f"AI service error: {error}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
+        if fallback_data is not None:
+            logger.info("Using fallback data due to AI service error")
+            return fallback_data
+        else:
+            raise error
+
+    # ===================== PROMPT GENERATORS =====================
+    
+    def _build_task_extraction_prompt(self, user_context_string: str) -> str:
+        """Build prompt for AI task extraction using Eisenhower Matrix"""
+        json_template_single = """{
+  "title": "8字内任务标题",
+  "content": "详细任务描述",
+  "deadline": "2024-01-15T09:00:00" 或 null,
+  "assignee": "提出人" 或 null,
+  "participant": "你",
+  "urgency": "low|high",
+  "importance": "low|high",
+  "difficulty": 1-10
+}"""
+        
+        json_template_multi = """[
+  {
+    "title": "任务1标题",
+    "content": "任务1详细描述",
+    "deadline": "2024-01-15T09:00:00" 或 null,
+    "assignee": "提出人" 或 null,
+    "participant": "你",
+    "urgency": "low|high",
+    "importance": "low|high",
+    "difficulty": 1-10
+  },
+  {
+    "title": "任务2标题",
+    "content": "任务2详细描述",
+    "deadline": "2024-01-16T14:00:00" 或 null,
+    "assignee": "提出人" 或 null,
+    "participant": "你",
+    "urgency": "low|high",
+    "importance": "low|high",
+    "difficulty": 1-10
+  }
+]"""
+        
+        return f"""你是一个智能任务解析助手。请从用户输入的中文文本中提取任务信息，返回固定的JSON格式。
+
+{user_context_string}
+
+规则：
+1. 只提取明确的任务信息，不确定的部分设为null
+2. title: 字数8个字以内，简洁概括任务内容（例如："完成项目报告"、"参加会议讨论"）
+3. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
+4. assignee: 根据用户的同事关系识别，提出该任务或将任务分配给用户的人，没有明确指定时设为null
+5. participant: 参与执行任务的人，默认为"你"，如果有识别到相关可能为姓名的人也一并加入
+6. 使用艾森豪威尔矩阵评估优先级：
+   - urgency（紧迫性）: "low"或"high" - 是否有时间限制，需要立即关注
+   - importance（重要性）: "low"或"high" - 是否对长期目标或个人成长价值有重要贡献，结合用户的职位类型、职级、是否管理层判断
+7. difficulty是1-10的数字，基于任务复杂度，需要结合用户的职位类型、职级来判断
+8. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
+9. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
+
+单任务返回格式：
+{json_template_single}
+
+多任务返回格式：
+{json_template_multi}"""
+
+    def _build_title_generation_prompt(self) -> str:
+        """Build prompt for chat session title generation"""
+        return """请根据用户的对话内容生成一个简短、贴切的中文会话标题，字数控制在10个字以内。
+            
+例如：
+- 如果用户说'帮我写一封感谢信'，标题可以是'感谢信草稿'
+- 如果用户说'解释一下Python的装饰器'，标题可以是'Python装饰器'
+- 如果用户说'今天天气怎么样'，标题可以是'天气查询'
+
+只返回标题文字，不要其他内容。"""
+
+    def _build_execution_guidance_prompt(self, user_context_string: str, task_context: str) -> str:
+        """Build prompt for task execution guidance generation"""
+        return f"""# 角色定义
+你是一位专业的项目管理专家和工作执行顾问，精通SMART、RACI等多种项目管理方法论。你的思维极度结构化、逻辑严谨，并始终以任务的结果目标为导向。
+
+# 核心任务
+你的唯一目标是将用户提出的一个复杂职场任务，分解成一个清晰、有序、可执行的步骤序列。你必须完全忽略所有关于人员性格、情绪或人际关系的软性信息，只做任务涉及人员和资源识别与排布。
+
+{user_context_string}
+
+{task_context}
+
+# 分析要求
+你需要：
+1. 分析目标：深入理解该任务的核心目标和最终要达成的关键结果（Key Results）
+2. 识别关键阶段：将实现该目标划分为几个逻辑上连续的关键阶段
+3. 分解具备可操作性的具体步骤：在每个阶段下，拆分出具体的、可操作的执行步骤
+4. 明确产出物：为关键步骤指明需要产出的具体成果
+5. 简单任务控制在5个步骤内，复杂任务不超过10个步骤，细碎的步骤进行整合。
+
+# 严格禁止
+绝对不要提供任何关于沟通方式、说服技巧、如何与人相处或考虑他人感受的建议。你的输出必须是100%客观的任务清单。
+
+# 输出格式要求
+必须返回标准JSON数组格式，每个步骤包含：procedure_number（从1开始的序号）、procedure_content（步骤内容）、key_result（关键结果）
+
+示例格式：
+[
+  {{
+    "procedure_number": 1,
+    "procedure_content": "收集项目相关的技术资料和竞品分析数据",
+    "key_result": "完成一份包含技术可行性和市场竞品对比的分析报告"
+  }},
+  {{
+    "procedure_number": 2,
+    "procedure_content": "设计项目方案并制作管理层汇报材料",
+    "key_result": "制作一份面向管理层的PPT提案，包含项目目标、实施计划和预算需求"
+  }}
+]
+
+只返回JSON数组，不要其他内容。"""
+
+    def _build_social_advice_prompt(self, user_info_context: str, colleague_context: str, procedures_context: str) -> str:
+        """Build prompt for social intelligence advice generation"""
+        return f"""角色
+你是一位顶级的组织心理学家和职场情商教练，尤其擅长应用大五人格（Big Five/OCEAN）等心理学模型来解决复杂的职场人际动态问题。你具有极高的情商和同理心。
+
+核心任务
+你的任务是接收一个已经制定好的客观行动计划，并为其中的每一步注入深刻的社会化智慧。你需要分析计划中涉及人员的性格特点，并评估实际的实现可能，进而提供具体的、可操作的沟通和行为建议，以提高计划的成功率。
+
+输入信息
+你将接收到以下两部分信息：
+
+1. 人物性格档案:{user_info_context}{colleague_context}
+    
+2. 待优化的行动计划:{procedures_context}
+
+处理指令
+第一步：人格特质推断
+  对于档案中的每一个人（包括用户自己），首先根据其"性格描述/标签"文本，推断出其在大五人格（OCEAN）模型中可能的倾向。
+  以一个简洁的摘要形式在内部进行分析（例如：老板 - 责任心(高)、外向性(中)、神经质(低)；财务负责人 - 责任心(极高)、开放性(低)）。你不需要直接输出这个分析表，但必须在后续建议中运用它。
+    
+第二步：逐条丰富计划
+  严格按照输入的行动计划编号，逐一分析每个步骤。
+  对于每个步骤，结合你对关键人物性格的推断，提供深入的"社会化建议补充"。
+    
+第三步：提供具体建议
+  在"社会化建议补充"中，必须回答以下问题：
+    关键互动对象： 这个步骤主要需要和谁打交道？
+    可能的反应预测： 基于此人的性格，他们对这一步最可能的正面和负面反应是什么？
+    最佳沟通策略：
+      应该选择什么沟通渠道（办公聊天软件、线下会议、非正式聊天、邮件或是其他方式）？
+      沟通时，应该如何组织语言和论据才能最大化地被对方接受？（例如："对老板，要先说结论和收益，后附数据；对财务，要先展示风险控制和详细数据;对运营，要先说关键问题和解决方案"）
+      应该强调什么，避免什么？
+    潜在的社交陷阱： 在这个步骤中，可能会遇到什么人际关系的障碍？如何提前规避？
+      
+输出格式
+将以上问题的答案整合为一句完整的话，使用MD格式，如果某一步骤没有以上问题的补充请填写null，并且以温暖、平常的语句输出，不要使用过多专业名词。
+
+必须返回标准JSON数组格式：
+[
+  {{
+    "procedure_number": 1,
+    "procedure_content": "步骤内容",
+    "social_advice": "社会化建议内容或null"
+  }},
+  {{
+    "procedure_number": 2,
+    "procedure_content": "步骤内容",
+    "social_advice": "社会化建议内容或null"
+  }}
+]
+
+只返回JSON数组，不要其他内容。"""
+
+    def _build_ocr_prompt(self) -> str:
+        """Build prompt for OCR text extraction"""
+        return """你是一个专业的图像文字识别助手。请仔细分析用户上传的图片，提取其中的所有文字内容。
+
+要求：
+1. 识别图片中的所有中文和英文文字
+2. 保持原有的文字顺序和段落结构
+3. 对于表格或列表，尽量保持原有格式
+4. 忽略图片中的装饰性元素，只专注于文字内容
+5. 如果文字不清楚，请尽力推测并标注[不清楚]
+6. 直接输出提取的文字，不需要额外说明
+
+请开始识别图片中的文字内容："""
+
+    # ===================== PUBLIC METHODS =====================
 
     def get_active_provider(self, user_id: int, db: Session, category: str = "text") -> Optional[AIProvider]:
         """Get active AI provider for user from SQLite by category"""
@@ -199,238 +498,96 @@ class AIServiceSQLite:
 
     async def generate_task_from_text(self, user_id: int, text: str, db: Session) -> List[Dict[str, Any]]:
         """Generate structured task from text using AI with user profile context"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        provider = self.get_active_provider(user_id, db, "text")
-        if not provider:
-            raise ValueError("No active text AI provider configured")
-
-        # Get user profile and colleague information
-        user_context = self.get_user_profile_info(user_id, db)
-
-        # Build colleague context string
-        colleague_context = ""
-        if user_context["colleagues"]:
-            colleague_names = []
-            for colleague in user_context["colleagues"]:
-                name_info = colleague["name"]
-                if colleague["work_nickname"]:
-                    name_info += f"（{colleague['work_nickname']}）"
-                name_info += f" - {colleague['relationship_type']}"
-                if colleague["job_type"]:
-                    name_info += f"，{colleague['job_type']}"
-                colleague_names.append(name_info)
-            colleague_context = f"\n用户的同事关系：{'; '.join(colleague_names)}"
-
-        # Build user info context
-        user_info = user_context["user_info"]
-        user_info_context = f"""
-用户信息：
-- 姓名：{user_info['name']}
-- 工作昵称：{user_info['work_nickname'] or '无'}
-- 职位类型：{user_info['job_type'] or '未知'}
-- 职位级别：{user_info['job_level'] or '未知'}
-- 管理层：{'是' if user_info['is_manager'] else '否'}{colleague_context}"""
-
-        # Enhanced AI prompt for Chinese task extraction using Eisenhower Matrix with user context
-        json_template_single = """{
-  "title": "8字内任务标题",
-  "content": "详细任务描述",
-  "deadline": "2024-01-15T09:00:00" 或 null,
-  "assignee": "提出人" 或 null,
-  "participant": "你",
-  "urgency": "low|high",
-  "importance": "low|high",
-  "difficulty": 1-10
-}"""
-        
-        json_template_multi = """[
-  {
-    "title": "任务1标题",
-    "content": "任务1详细描述",
-    "deadline": "2024-01-15T09:00:00" 或 null,
-    "assignee": "提出人" 或 null,
-    "participant": "你",
-    "urgency": "low|high",
-    "importance": "low|high",
-    "difficulty": 1-10
-  },
-  {
-    "title": "任务2标题",
-    "content": "任务2详细描述",
-    "deadline": "2024-01-16T14:00:00" 或 null,
-    "assignee": "提出人" 或 null,
-    "participant": "你",
-    "urgency": "low|high",
-    "importance": "low|high",
-    "difficulty": 1-10
-  }
-]"""
-        
-        system_prompt = f"""你是一个智能任务解析助手。请从用户输入的中文文本中提取任务信息，返回固定的JSON格式。
-
-{user_info_context}
-
-规则：
-1. 只提取明确的任务信息，不确定的部分设为null
-2. title: 字数8个字以内，简洁概括任务内容（例如："完成项目报告"、"参加会议讨论"）
-3. deadline格式为ISO 8601 (YYYY-MM-DDTHH:mm:ss)
-4. assignee: 根据用户的同事关系识别，提出该任务或将任务分配给用户的人，没有明确指定时设为null
-5. participant: 参与执行任务的人，默认为"你"，如果有识别到相关可能为姓名的人也一并加入
-6. 使用艾森豪威尔矩阵评估优先级：
-   - urgency（紧迫性）: "low"或"high" - 是否有时间限制，需要立即关注
-   - importance（重要性）: "low"或"high" - 是否对长期目标或个人成长价值有重要贡献，结合用户的职位类型、职级、是否管理层判断
-7. difficulty是1-10的数字，基于任务复杂度，需要结合用户的职位类型、职级来判断
-8. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
-9. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
-
-单任务返回格式：
-{json_template_single}
-
-多任务返回格式：
-{json_template_multi}"""
-
-        user_prompt = f"请从以下文本中提取任务信息：\n\n{text}"
-        
         try:
-            config = provider.config
-            model = config.get("model", "gpt-3.5-turbo")
+            # Step 1: Get AI provider
+            provider = self.get_active_provider(user_id, db, "text")
+            if not provider:
+                raise ValueError("No active text AI provider configured")
+
+            # Step 2: Build user context
+            user_context = self.get_user_profile_info(user_id, db)
+            user_context_string = self._build_user_context_string(user_context)
+
+            # Step 3: Build system prompt
+            system_prompt = self._build_task_extraction_prompt(user_context_string)
+            user_prompt = f"请从以下文本中提取任务信息：\n\n{text}"
+
+            # Step 4: Make AI request
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
             
-            # Set 5 minutes timeout for AI requests
-            timeout = httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                # Build payload using user configuration
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ]
-                
-                # For task generation, we prefer higher token limits for JSON responses
-                # But still respect user's max_tokens if they configured it
-                max_tokens_for_task = None
-                if "deepseek-reasoner" in config.get("model", ""):
-                    max_tokens_for_task = config.get("max_tokens", 2000)  # More tokens for reasoning
-                else:
-                    max_tokens_for_task = config.get("max_tokens", 1000)  # User config or reasonable default
-                
-                payload = self._build_payload(config, messages, stream=False, max_tokens_override=max_tokens_for_task)
-                
-                headers = {
-                    "Authorization": f"Bearer {config.get('api_key', '')}",
-                    "Content-Type": "application/json"
-                }
-                
-                response = await client.post(
-                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
-                    json=payload,
-                    headers=headers
-                )
-                
-                if response.status_code != 200:
-                    error_text = response.text
-                    raise Exception(f"AI API error {response.status_code}: {error_text}")
-                
-                result = response.json()
-                message = result.get("choices", [{}])[0].get("message", {})
-                ai_response = message.get("content", "")
-                
-                # Log reasoning content for DeepSeek models (but use content for parsing)
-                if message.get("reasoning_content"):
-                    logger.info(f"DeepSeek reasoning: {message.get('reasoning_content')}")
-                
-                logger.info(f"AI response content: {ai_response}")
-                print(f"[DEBUG] Full AI response content:\n{ai_response}")
-                print(f"[DEBUG] AI response length: {len(ai_response)}")
-                
-                # Try to parse JSON from AI response
-                try:
-                    # Extract JSON from response (handle markdown code blocks)
-                    import re
-                    
-                    # First try to extract from markdown code block (support both objects and arrays)
-                    markdown_match = re.search(r'```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```', ai_response, re.DOTALL)
-                    if markdown_match:
-                        json_str = markdown_match.group(1)
-                        logger.info(f"Extracted JSON from markdown: {json_str}")
-                    else:
-                        # Fallback to direct JSON extraction (support both objects and arrays)
-                        json_match = re.search(r'(\[.*?\]|\{.*?\})', ai_response, re.DOTALL)
-                        if json_match:
-                            json_str = json_match.group()
-                            logger.info(f"Extracted JSON directly: {json_str}")
-                        else:
-                            raise ValueError("No JSON found in response")
-                    
-                    # Clean up JavaScript-style comments that are invalid in JSON
-                    # Remove // single-line comments
-                    json_str = re.sub(r'//.*?(?=\n|$)', '', json_str, flags=re.MULTILINE)
-                    # Remove /* multi-line comments */
-                    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
-                    # Clean up any trailing commas that might be left after comment removal
-                    json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
-                    print(f"[DEBUG] Cleaned JSON: {json_str[:200]}...")
-                    
-                    task_data = json.loads(json_str)
-                    logger.info(f"Parsed task data: {task_data}")
-                    print(f"[DEBUG] Parsed task data type: {type(task_data)}")
-                    print(f"[DEBUG] Parsed task data: {task_data}")
-                    
-                    # Handle both single task and array of tasks
-                    if isinstance(task_data, list):
-                        logger.info(f"AI returned {len(task_data)} tasks")
-                        print(f"[DEBUG] AI returned {len(task_data)} tasks as array")
-                        validated_tasks = []
-                        for i, single_task in enumerate(task_data):
-                            print(f"[DEBUG] Processing task {i+1}: {single_task}")
-                            validated_task = self._validate_single_task(single_task, text, logger)
-                            validated_tasks.append(validated_task)
-                        print(f"[DEBUG] Final validated tasks count: {len(validated_tasks)}")
-                        return validated_tasks
-                    else:
-                        # Single task
-                        logger.info("AI returned single task")
-                        print(f"[DEBUG] AI returned single task object")
-                        validated_task = self._validate_single_task(task_data, text, logger)
-                        return [validated_task]  # Return as array for consistency
-                        
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.error(f"JSON parsing error: {e}, AI response: {ai_response}")
-                    print(f"[DEBUG] JSON parsing failed with error: {e}")
-                    print(f"[DEBUG] AI response that failed to parse:\n{ai_response}")
-                    # Fallback to simple parsing if AI response is invalid
-                    fallback_task = {
-                        "title": text[:8] if len(text) <= 8 else text[:7] + "...",
-                        "content": text,
-                        "deadline": None,
-                        "assignee": None,
-                        "participant": "你",
-                        "urgency": "low",
-                        "importance": "low",
-                        "difficulty": 5
-                    }
-                    print(f"[DEBUG] Using fallback task: {fallback_task}")
-                    return [fallback_task]
-                    
-        except Exception as e:
-            import traceback
-            logger.error(f"AI service error: {e}")
-            logger.error(f"Full traceback: {traceback.format_exc()}")
-            print(f"[DEBUG] AI service failed with exception: {e}")
-            print(f"[DEBUG] Using fallback due to AI service failure")
-            # Fallback to simple parsing if AI service fails
-            fallback_task = {
-                "title": text[:8] if len(text) <= 8 else text[:7] + "...",
-                "content": text,
-                "deadline": None,
-                "assignee": None,
-                "participant": "你",
-                "urgency": "low",
-                "importance": "low",
-                "difficulty": 5
-            }
-            print(f"[DEBUG] Service fallback task: {fallback_task}")
+            # Dynamic max_tokens based on model type
+            max_tokens = self.DEFAULT_MAX_TOKENS
+            if "deepseek-reasoner" in provider.config.get("model", ""):
+                max_tokens = provider.config.get("max_tokens", 2000)
+            else:
+                max_tokens = provider.config.get("max_tokens", 1000)
+
+            result = await self._make_ai_request(provider, messages, stream=False, max_tokens_override=max_tokens)
+
+            # Step 5: Extract and parse response
+            message = result.get("choices", [{}])[0].get("message", {})
+            ai_response = message.get("content", "")
+            
+            # Log reasoning content for DeepSeek models (but use content for parsing)
+            if message.get("reasoning_content"):
+                logger.info(f"DeepSeek reasoning: {message.get('reasoning_content')}")
+            
+            logger.info(f"AI response content: {ai_response}")
+            print(f"[DEBUG] Full AI response content:\n{ai_response}")
+            print(f"[DEBUG] AI response length: {len(ai_response)}")
+
+            # Step 6: Parse JSON response
+            task_data = self._extract_and_clean_json(ai_response)
+            logger.info(f"Parsed task data: {task_data}")
+            print(f"[DEBUG] Parsed task data type: {type(task_data)}")
+            print(f"[DEBUG] Parsed task data: {task_data}")
+
+            # Step 7: Validate and return results
+            if isinstance(task_data, list):
+                logger.info(f"AI returned {len(task_data)} tasks")
+                print(f"[DEBUG] AI returned {len(task_data)} tasks as array")
+                validated_tasks = []
+                for i, single_task in enumerate(task_data):
+                    print(f"[DEBUG] Processing task {i+1}: {single_task}")
+                    validated_task = self._validate_single_task(single_task, text, logger)
+                    validated_tasks.append(validated_task)
+                print(f"[DEBUG] Final validated tasks count: {len(validated_tasks)}")
+                return validated_tasks
+            else:
+                # Single task
+                logger.info("AI returned single task")
+                print(f"[DEBUG] AI returned single task object")
+                validated_task = self._validate_single_task(task_data, text, logger)
+                return [validated_task]  # Return as array for consistency
+
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"JSON parsing error: {e}")
+            print(f"[DEBUG] JSON parsing failed with error: {e}")
+            # Fallback to simple parsing
+            fallback_task = self._create_fallback_task(text)
+            print(f"[DEBUG] Using fallback task: {fallback_task}")
             return [fallback_task]
+                
+        except Exception as e:
+            # Unified error handling with fallback
+            fallback_task = self._create_fallback_task(text)
+            return self._handle_ai_error(e, [fallback_task])
+
+    def _create_fallback_task(self, text: str) -> Dict[str, Any]:
+        """Create a fallback task when AI processing fails"""
+        return {
+            "title": text[:8] if len(text) <= 8 else text[:7] + "...",
+            "content": text,
+            "deadline": None,
+            "assignee": None,
+            "participant": "你",
+            "urgency": "low",
+            "importance": "low",
+            "difficulty": 5
+        }
 
     def _validate_single_task(self, task_data: Dict[str, Any], original_text: str, logger) -> Dict[str, Any]:
         """Validate and clean a single task data object"""
@@ -570,100 +727,56 @@ class AIServiceSQLite:
 
     async def generate_session_title(self, user_id: int, first_message: str, db: Session) -> str:
         """Generate a short session title based on user's first message"""
-        provider = self.get_active_provider(user_id, db, "text")
-        if not provider:
-            return "新对话"
-        
         try:
-            config = provider.config
-            
-            # System prompt for title generation
-            system_prompt = """请根据用户的对话内容生成一个简短、贴切的中文会话标题，字数控制在10个字以内。
-            
-例如：
-- 如果用户说'帮我写一封感谢信'，标题可以是'感谢信草稿'
-- 如果用户说'解释一下Python的装饰器'，标题可以是'Python装饰器'
-- 如果用户说'今天天气怎么样'，标题可以是'天气查询'
+            # Step 1: Get AI provider
+            provider = self.get_active_provider(user_id, db, "text")
+            if not provider:
+                return "新对话"
 
-只返回标题文字，不要其他内容。"""
+            # Step 2: Build system prompt
+            system_prompt = self._build_title_generation_prompt()
+            user_prompt = f"用户消息是：{first_message}"
 
+            # Step 3: Make AI request with appropriate token limits
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"用户消息是：{first_message}"}
+                {"role": "user", "content": user_prompt}
             ]
             
-            async with httpx.AsyncClient(timeout=60.0) as client:  # Increased timeout for reasoning models
-                # For title generation, limit tokens appropriately but respect user config
-                model = config.get("model", "gpt-3.5-turbo")
-                if "deepseek-reasoner" in model:
-                    # Reasoning models need more tokens to complete the reasoning process
-                    max_tokens_for_title = config.get("max_tokens", 3000)
-                else:
-                    # For title generation, use user config but cap at reasonable limit for titles
-                    user_max_tokens = config.get("max_tokens", 100)
-                    max_tokens_for_title = min(user_max_tokens, 100)  # Cap at 100 for efficiency
-                
-                payload = self._build_payload(config, messages, stream=False, max_tokens_override=max_tokens_for_title)
-                
-                response = await client.post(
-                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {config.get('api_key', '')}",
-                        "Content-Type": "application/json"
-                    }
-                )
-                
-                print(f"Title generation request payload: {payload}")
-                print(f"Title generation response status: {response.status_code}")
-                
-                if response.status_code == 200:
-                    response_data = response.json()
-                    print(f"Full response data: {response_data}")
-                    
-                    choice = response_data["choices"][0]
-                    message = choice["message"]
-                    finish_reason = choice.get("finish_reason")
-                    
-                    print(f"Message object: {message}")
-                    print(f"Finish reason: {finish_reason}")
-                    
-                    # Handle both regular and reasoning models
-                    title = ""
-                    
-                    # For both regular and reasoning models, the final answer is in 'content'
-                    # reasoning_content (if exists) is just the thinking process, not the answer
-                    if "content" in message and message["content"]:
-                        title = message["content"].strip()
-                        print(f"Found title in content: '{title}'")
-                    
-                    # If content is empty but we have reasoning_content, it means generation was truncated
-                    if not title and "reasoning_content" in message and message["reasoning_content"]:
-                        print(f"Content is empty but reasoning_content exists: '{message['reasoning_content']}'")
-                        print(f"This suggests the generation was truncated due to max_tokens limit")
-                        # Don't use reasoning_content as title - it's just thinking process
-                    
-                    # Remove <think> tags if present
-                    import re
-                    title = re.sub(r'<think>.*?</think>', '', title, flags=re.DOTALL).strip()
-                    
-                    # Clean up the title - remove quotes, ensure max length
-                    title = title.strip('"').strip("'").strip()
-                    if len(title) > 10:
-                        title = title[:10]
-                    
-                    print(f"Final cleaned title: '{title}'")
-                    return title if title else "新对话"
-                else:
-                    error_text = response.text
-                    print(f"API error: {response.status_code} - {error_text}")
-                    return "新对话"
-                    
+            # Dynamic max_tokens for title generation
+            model = provider.config.get("model", "gpt-3.5-turbo")
+            if "deepseek-reasoner" in model:
+                max_tokens = provider.config.get("max_tokens", 3000)  # Reasoning models need more
+            else:
+                user_max_tokens = provider.config.get("max_tokens", self.TITLE_MAX_TOKENS)
+                max_tokens = min(user_max_tokens, self.TITLE_MAX_TOKENS)  # Cap for efficiency
+
+            result = await self._make_ai_request(provider, messages, stream=False, max_tokens_override=max_tokens)
+
+            # Step 4: Extract and clean title
+            message = result.get("choices", [{}])[0].get("message", {})
+            
+            print(f"Title generation response: {result}")
+            print(f"Message object: {message}")
+            
+            # Extract title from content (never from reasoning_content for titles)
+            title = ""
+            if "content" in message and message["content"]:
+                title = message["content"].strip()
+                print(f"Found title in content: '{title}'")
+            
+            # Clean up the title
+            import re
+            title = re.sub(r'<think>.*?</think>', '', title, flags=re.DOTALL).strip()
+            title = title.strip('"').strip("'").strip()
+            if len(title) > 10:
+                title = title[:10]
+            
+            print(f"Final cleaned title: '{title}'")
+            return title if title else "新对话"
+
         except Exception as e:
-            import traceback
-            print(f"Title generation error: {e}")
-            print(f"Full traceback: {traceback.format_exc()}")
-            return "新对话"
+            return self._handle_ai_error(e, "新对话")
 
     def get_active_image_ocr_provider(self, user_id: int, db: Session) -> Optional[AIProvider]:
         """Get active AI provider specifically for image OCR (using image category)"""
