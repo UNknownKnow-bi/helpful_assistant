@@ -67,6 +67,11 @@ Generated from OpenAPI specification
 **Properties:**
 - `detail` (array of unknown) (optional): 
 
+## TaskConfirmRequest
+Request to confirm and save preview tasks
+**Properties:**
+- `tasks` (array of unknown) (required): 
+
 ## TaskCreate
 **Properties:**
 - `title` (string) (required): 
@@ -77,6 +82,24 @@ Generated from OpenAPI specification
 - `urgency` (string) (optional): 
 - `importance` (string) (optional): 
 - `difficulty` (integer) (optional): 
+
+## TaskPreview
+Task preview data returned by AI generation without database storage
+**Properties:**
+- `title` (string) (required): 
+- `content` (string) (required): 
+- `deadline` (unknown) (optional): 
+- `assignee` (unknown) (optional): 
+- `participant` (string) (optional): 
+- `urgency` (string) (optional): 
+- `importance` (string) (optional): 
+- `difficulty` (integer) (optional): 
+
+## TaskPreviewResponse
+Response containing preview tasks that haven't been saved yet
+**Properties:**
+- `tasks` (array of unknown) (required): 
+- `message` (string) (optional): 
 
 ## TaskResponse
 **Properties:**
@@ -91,6 +114,8 @@ Generated from OpenAPI specification
 - `id` (integer) (required): 
 - `source` (string) (required): 
 - `status` (string) (required): 
+- `execution_procedures` (unknown) (optional): 
+- `social_advice` (unknown) (optional): 
 - `created_at` (string) (required): 
 - `updated_at` (string) (required): 
 

@@ -15,6 +15,10 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          100: "#e8eaed", // Light blue-gray
+          300: "#7c8791", // Medium blue-gray  
+          500: "#2c3e50", // Main dark blue-gray color
+          600: "#233242", // Darker blue-gray
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -40,6 +44,13 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Neutral color system
+        neutral: {
+          50: "#F8FAFC",   // Slate-50
+          200: "#E2E8F0",  // Slate-200
+          500: "#64748B",  // Slate-500
+          900: "#0F172A",  // Slate-900
+        }
       },
       borderRadius: {
         lg: "var(--radius)",

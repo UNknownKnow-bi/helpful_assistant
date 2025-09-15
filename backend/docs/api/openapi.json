@@ -912,7 +912,7 @@
           "Tasks"
         ],
         "summary": "Create Task",
-        "description": "Create a new task manually",
+        "description": "Create a new task manually with automatic execution guidance generation",
         "operationId": "create_task_api_tasks_post",
         "security": [
           {
@@ -1169,6 +1169,98 @@
         }
       }
     },
+    "/api/tasks/{task_id}/execution-procedures": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get Task Execution Procedures",
+        "description": "Get execution procedures for a specific task",
+        "operationId": "get_task_execution_procedures_api_tasks__task_id__execution_procedures_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/regenerate-execution-procedures": {
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Regenerate Task Execution Procedures",
+        "description": "Manually regenerate execution procedures for a specific task",
+        "operationId": "regenerate_task_execution_procedures_api_tasks__task_id__regenerate_execution_procedures_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tasks/generate": {
       "post": {
         "tags": [
@@ -1202,6 +1294,108 @@
                   },
                   "type": "array",
                   "title": "Response Generate Task From Text Api Tasks Generate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/tasks/generate-preview": {
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Generate Task Preview From Text",
+        "description": "Generate preview task cards from Chinese text using AI (supports multiple tasks) - NO DATABASE SAVE",
+        "operationId": "generate_task_preview_from_text_api_tasks_generate_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "title": "Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/tasks/confirm-tasks": {
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Confirm And Save Tasks",
+        "description": "Confirm and save preview tasks to database with execution procedures generation",
+        "operationId": "confirm_and_save_tasks_api_tasks_confirm_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Confirm And Save Tasks Api Tasks Confirm Tasks Post"
                 }
               }
             }
@@ -1318,6 +1512,98 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/tasks/{task_id}/social-advice": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get Task Social Advice",
+        "description": "Get social advice for a specific task",
+        "operationId": "get_task_social_advice_api_tasks__task_id__social_advice_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/generate-social-advice": {
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Generate Task Social Advice",
+        "description": "Generate social advice for a specific task based on execution procedures",
+        "operationId": "generate_task_social_advice_api_tasks__task_id__generate_social_advice_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/profile/": {
@@ -2044,6 +2330,23 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "TaskConfirmRequest": {
+        "properties": {
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskCreate"
+            },
+            "type": "array",
+            "title": "Tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tasks"
+        ],
+        "title": "TaskConfirmRequest",
+        "description": "Request to confirm and save preview tasks"
+      },
       "TaskCreate": {
         "properties": {
           "title": {
@@ -2110,6 +2413,96 @@
           "content"
         ],
         "title": "TaskCreate"
+      },
+      "TaskPreview": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee"
+          },
+          "participant": {
+            "type": "string",
+            "title": "Participant",
+            "default": "你"
+          },
+          "urgency": {
+            "type": "string",
+            "title": "Urgency",
+            "default": "low"
+          },
+          "importance": {
+            "type": "string",
+            "title": "Importance",
+            "default": "low"
+          },
+          "difficulty": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Difficulty",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "TaskPreview",
+        "description": "Task preview data returned by AI generation without database storage"
+      },
+      "TaskPreviewResponse": {
+        "properties": {
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskPreview"
+            },
+            "type": "array",
+            "title": "Tasks"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "任务预览生成成功，请确认后保存"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tasks"
+        ],
+        "title": "TaskPreviewResponse",
+        "description": "Response containing preview tasks that haven't been saved yet"
       },
       "TaskResponse": {
         "properties": {
@@ -2181,6 +2574,36 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "execution_procedures": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Procedures"
+          },
+          "social_advice": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Social Advice"
           },
           "created_at": {
             "type": "string",

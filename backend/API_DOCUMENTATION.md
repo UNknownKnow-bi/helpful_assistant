@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, and **🆕 two-stage task preview & confirmation system**.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
 
 ## Base URL
 ```
@@ -79,6 +79,36 @@ Authorization: Bearer <your_jwt_token>
 - `POST /api/profile/relationships` - Create work relationship
 - `PUT /api/profile/relationships/{id}` - Update work relationship
 - `DELETE /api/profile/relationships/{id}` - Delete work relationship
+
+---
+
+## 🎨 UI/UX Integration Features
+
+The API now provides full integration with a sophisticated **Eisenhower Matrix-based dashboard** that transforms task management through strategic prioritization and modern design principles.
+
+### **🎯 Eisenhower Matrix Dashboard**
+- **Automatic Task Categorization**: Tasks are automatically organized into four strategic quadrants based on urgency and importance
+- **Real-time Repositioning**: API changes to task priority instantly move tasks between quadrants
+- **Visual Priority System**: Color-coded quadrants with distinct styling for immediate recognition
+- **Smart Tag Generation**: Dynamic priority tags based on urgency/importance combinations
+
+### **💳 Enhanced Task Card Design**  
+- **Professional Aesthetics**: Modern dark blue-gray theme (#2c3e50) with sophisticated color palette
+- **Comprehensive Information Display**: Deadline, assignee, participants, and visual difficulty indicators
+- **Interactive Elements**: Icon-based action buttons with hover tooltips and smooth transitions
+- **Priority Tag Logic**: Automatic tag assignment (高优先级, 重要, 紧急, 低优先级) based on matrix positioning
+
+### **✏️ Complete Edit Functionality**
+- **Full Modal Integration**: Professional edit dialog with pre-populated fields
+- **Real-time Validation**: Form validation with proper data type handling and error feedback
+- **Seamless API Integration**: Direct connection to `PUT /api/tasks/{task_id}` endpoint
+- **Automatic Updates**: Immediate UI refresh and quadrant repositioning after successful updates
+
+### **🎛️ Modern Navigation & Interface**
+- **Sophisticated Sidebar**: Professional navigation with Lucide React icons and elegant activation states
+- **Clean Information Architecture**: Streamlined interface with reduced cognitive load
+- **Responsive Design**: Mobile-friendly layouts with improved breakpoints
+- **Accessibility Features**: High contrast ratios, clear visual hierarchy, and intuitive interactions
 
 ---
 
@@ -834,6 +864,126 @@ Both execution procedures AND social intelligence advice are automatically gener
   "detail": "Failed to regenerate execution procedures: AI service temporarily unavailable"
 }
 ```
+
+#### PUT /api/tasks/{task_id}
+Update an existing task with comprehensive field editing and automatic Eisenhower Matrix repositioning.
+
+**🆕 Enhanced with UI Integration**: This endpoint now powers the sophisticated edit modal in the frontend dashboard, providing seamless task modification with real-time quadrant repositioning based on urgency/importance changes.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task to update
+
+**Request Body:**
+All fields are optional. Only provided fields will be updated.
+
+```json
+{
+  "title": "Updated Task Title",
+  "content": "Updated task description with more details",
+  "deadline": "2025-01-10T15:30:00Z",
+  "assignee": "Updated Assignee Name",
+  "participant": "Updated Participant",
+  "urgency": "low",
+  "importance": "high",
+  "difficulty": 8,
+  "status": "in_progress"
+}
+```
+
+**Field Specifications:**
+- `title` (string): Task title
+- `content` (string): Task description/content
+- `deadline` (string, ISO 8601): Task deadline in UTC format
+- `assignee` (string): Person who assigned/proposed the task
+- `participant` (string): Person who will participate in the task
+- `urgency` (enum): "low" or "high" - affects Eisenhower Matrix positioning
+- `importance` (enum): "low" or "high" - affects Eisenhower Matrix positioning  
+- `difficulty` (integer): Task difficulty from 1-10
+- `status` (enum): "pending", "in_progress", or "completed"
+
+**Eisenhower Matrix Integration:**
+Changes to `urgency` and `importance` automatically reposition tasks in the dashboard:
+- **High urgency + High importance** → 重要且紧急 (Red quadrant)
+- **Low urgency + High importance** → 重要不紧急 (Orange quadrant)
+- **High urgency + Low importance** → 紧急不重要 (Blue quadrant)  
+- **Low urgency + Low importance** → 不重要不紧急 (Gray quadrant)
+
+**Response:**
+```json
+{
+  "id": 13,
+  "title": "Updated Task Title",
+  "content": "Updated task description with more details",
+  "deadline": "2025-01-10T15:30:00Z",
+  "assignee": "Updated Assignee Name", 
+  "participant": "Updated Participant",
+  "urgency": "low",
+  "importance": "high",
+  "difficulty": 8,
+  "source": "manual",
+  "status": "in_progress",
+  "execution_procedures": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "Existing procedure content (preserved)",
+      "key_result": "Existing key result (preserved)"
+    }
+  ],
+  "social_advice": [
+    {
+      "procedure_number": 1,
+      "procedure_content": "Existing procedure content",
+      "social_advice": "Existing social advice (preserved)"
+    }
+  ],
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T12:30:00Z"
+}
+```
+
+**Frontend UI Integration:**
+- **Edit Modal**: Professional edit form with pre-populated fields
+- **Real-time Validation**: Form validation with proper data types
+- **Automatic Repositioning**: Tasks move between Eisenhower Matrix quadrants based on priority changes
+- **User Experience**: Loading states, success messages, and error handling
+- **DateTime Picker**: Integrated datetime-local input for deadline editing
+
+**Error Responses:**
+
+Task not found (404):
+```json
+{
+  "detail": "Task not found"
+}
+```
+
+Validation error (422):
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "difficulty"],
+      "msg": "ensure this value is less than or equal to 10",
+      "type": "value_error.number.not_le",
+      "ctx": {"limit_value": 10}
+    }
+  ]
+}
+```
+
+Unauthorized access (401):
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+**Usage Notes:**
+- Only provided fields are updated; omitted fields remain unchanged
+- Execution procedures and social advice are preserved during updates
+- The `updated_at` timestamp is automatically updated
+- Changes to urgency/importance trigger automatic quadrant repositioning in the UI
+- All updates are immediately reflected in the Eisenhower Matrix dashboard
 
 ### Chat APIs
 

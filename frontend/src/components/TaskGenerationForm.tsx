@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { tasksApi } from '@/services/api'
@@ -190,34 +189,26 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>AI 任务生成器</CardTitle>
-        <p className="text-sm text-gray-600">
-          输入文字描述或上传图片，AI将自动解析并生成结构化任务卡片
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+    <div className="space-y-4">
           {/* Input Mode Toggle */}
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+          <div className="flex gap-2 p-1 bg-orange-50 rounded-lg">
             <Button
               variant={inputMode === 'text' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handleModeSwitch('text')}
               disabled={isGenerating || isExtracting || isConfirming}
-              className="flex-1"
+              className={`flex-1 ${inputMode === 'text' ? 'bg-orange-200 text-orange-900 hover:bg-orange-300' : ''}`}
             >
-              📝 文字输入
+              文字输入
             </Button>
             <Button
               variant={inputMode === 'image' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handleModeSwitch('image')}
               disabled={isGenerating || isExtracting || isConfirming}
-              className="flex-1"
+              className={`flex-1 ${inputMode === 'image' ? 'bg-orange-200 text-orange-900 hover:bg-orange-300' : ''}`}
             >
-              🖼️ 图片识别
+              图片识别
             </Button>
           </div>
 
@@ -433,33 +424,6 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
               </Button>
             </div>
           )}
-          
-          <div className="bg-blue-50 p-3 rounded-md">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">
-              {inputMode === 'text' ? 'AI能识别的信息：' : 'AI图片识别功能：'}
-            </h4>
-            {inputMode === 'text' ? (
-              <ul className="text-xs text-blue-700 space-y-1">
-                <li>• 任务标题和详细描述</li>
-                <li>• 截止时间（如"明天下午3点"、"本周五"、"12月15日"）</li>
-                <li>• 提出人/分配人姓名</li>
-                <li>• 紧迫性（是否有时间限制，需要立即关注）</li>
-                <li>• 重要性（是否对长期目标有重要贡献）</li>
-                <li>• 难度描述（"简单"、"复杂"、"困难"等）</li>
-              </ul>
-            ) : (
-              <ul className="text-xs text-blue-700 space-y-1">
-                <li>• <strong>步骤 1</strong>：上传图片，AI 识别中英文文字内容</li>
-                <li>• <strong>步骤 2</strong>：预览识别结果，可手动编辑修改</li>
-                <li>• <strong>步骤 3</strong>：确认后 AI 自动生成任务卡片</li>
-                <li>• 支持手写文字、打印文档、屏幕截图、会议白板等</li>
-                <li>• 推荐上传清晰度较高的图片以获得更好的识别效果</li>
-              </ul>
-            )}
-          </div>
-        </div>
-      </CardContent>
-
       {/* Task Preview Popup */}
       <TaskPreviewPopup
         isOpen={showPreviewPopup}
@@ -469,7 +433,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
         onConfirm={handleConfirmTasks}
         isConfirming={isConfirming}
       />
-    </Card>
+    </div>
   )
 }
 

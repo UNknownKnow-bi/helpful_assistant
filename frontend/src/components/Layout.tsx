@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
-import { MessageSquare, CheckSquare, Settings, User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MessageSquare, CheckSquare, Settings, User, LogOut, ChevronLeft, ChevronRight, LayoutDashboard, MessageCircle, SlidersHorizontal, UserCircle } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -24,84 +24,71 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   const navItems = [
-    { path: '/dashboard', label: '任务管理', icon: CheckSquare },
-    { path: '/chat', label: 'AI问答', icon: MessageSquare },
-    { path: '/ai-config', label: 'AI配置', icon: Settings },
-    { path: '/profile', label: '个人资料', icon: User },
+    { path: '/dashboard', label: '任务管理', icon: LayoutDashboard },
+    { path: '/chat', label: 'AI问答', icon: MessageCircle },
+    { path: '/ai-config', label: 'AI配置', icon: SlidersHorizontal },
+    { path: '/profile', label: '个人资料', icon: UserCircle },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                智时助手
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={handleLogout}
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-gray-700"
+    <div className="flex h-screen">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
+        <div className="px-6 py-4 flex items-center space-x-3">
+          <div className="bg-primary-100 p-2 rounded-lg">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="#2c3e50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 7L12 12M22 7L12 12M12 22V12" stroke="#2c3e50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M17 4.5L7 9.5" stroke="#2c3e50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-neutral-900">智时助手</h1>
+        </div>
+        
+        <nav className="flex-1 px-4 py-4 space-y-2">
+          {navItems.map(({ path, label, icon: Icon }) => {
+            const isActive = location.pathname === path
+            return (
+              <Link
+                key={path}
+                to={path}
+                className={`flex items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors ${
+                  isActive
+                    ? 'text-white bg-primary-500 shadow-sm'
+                    : 'text-neutral-500 hover:bg-primary-100 hover:text-primary-600'
+                }`}
               >
-                <LogOut className="h-4 w-4 mr-2" />
-                退出
-              </Button>
+                <Icon className="w-5 h-5 mr-3" />
+                {label}
+              </Link>
+            )
+          })}
+        </nav>
+        
+        <div className="p-4 border-t border-neutral-200">
+          <div className="flex items-center space-x-3">
+            <img className="w-10 h-10 rounded-full" src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User avatar" />
+            <div>
+              <p className="text-sm font-semibold">用户</p>
+              <p className="text-xs text-neutral-500">user@example.com</p>
             </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-neutral-500 hover:text-neutral-900 p-1"
+              title="退出"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </div>
-      </header>
+      </aside>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <nav className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white shadow-sm h-[calc(100vh-64px)] transition-all duration-300 relative`}>
-          {/* Toggle Button */}
-          <Button
-            onClick={toggleSidebar}
-            variant="ghost"
-            size="sm"
-            className="absolute -right-3 top-4 z-10 h-6 w-6 p-0 bg-white border border-gray-200 rounded-full shadow-sm hover:bg-gray-50"
-          >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-3 w-3" />
-            ) : (
-              <ChevronLeft className="h-3 w-3" />
-            )}
-          </Button>
-
-          <div className="p-4">
-            <div className="space-y-2">
-              {navItems.map(({ path, label, icon: Icon }) => {
-                const isActive = location.pathname === path
-                return (
-                  <Link
-                    key={path}
-                    to={path}
-                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    } ${sidebarCollapsed ? 'justify-center' : ''}`}
-                    title={sidebarCollapsed ? label : ''}
-                  >
-                    <Icon className={`h-4 w-4 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-                    {!sidebarCollapsed && label}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </nav>
-
-        {/* Main content */}
-        <main className="flex-1 p-6 transition-all duration-300">
-          {children}
-        </main>
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        {children}
+      </main>
     </div>
   )
 }

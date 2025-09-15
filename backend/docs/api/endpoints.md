@@ -240,7 +240,7 @@ Generated from OpenAPI specification
 
 ### POST /api/tasks
 **Summary:** Create Task
-**Description:** Create a new task manually
+**Description:** Create a new task manually with automatic execution guidance generation
 **Authentication:** Required (JWT Bearer Token)
 **Request Body:**
 - Content-Type: application/json
@@ -304,11 +304,59 @@ Generated from OpenAPI specification
 
 ---
 
+### GET /api/tasks/{task_id}/execution-procedures
+**Summary:** Get Task Execution Procedures
+**Description:** Get execution procedures for a specific task
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### POST /api/tasks/{task_id}/regenerate-execution-procedures
+**Summary:** Regenerate Task Execution Procedures
+**Description:** Manually regenerate execution procedures for a specific task
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
 ### POST /api/tasks/generate
 **Summary:** Generate Task From Text
 **Description:** Generate task cards from Chinese text using AI (supports multiple tasks)
 **Authentication:** Required (JWT Bearer Token)
 **Request Body:**
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### POST /api/tasks/generate-preview
+**Summary:** Generate Task Preview From Text
+**Description:** Generate preview task cards from Chinese text using AI (supports multiple tasks) - NO DATABASE SAVE
+**Authentication:** Required (JWT Bearer Token)
+**Request Body:**
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### POST /api/tasks/confirm-tasks
+**Summary:** Confirm And Save Tasks
+**Description:** Confirm and save preview tasks to database with execution procedures generation
+**Authentication:** Required (JWT Bearer Token)
+**Request Body:**
+- Content-Type: application/json
+- Schema: TaskConfirmRequest
 **Responses:**
 - `200`: Successful Response
 - `422`: Validation Error
@@ -334,6 +382,30 @@ Uses AI OCR if active imageOCR provider is configured, otherwise falls back to E
 **Authentication:** Required (JWT Bearer Token)
 **Request Body:**
 - Content-Type: multipart/form-data (file upload)
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### GET /api/tasks/{task_id}/social-advice
+**Summary:** Get Task Social Advice
+**Description:** Get social advice for a specific task
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### POST /api/tasks/{task_id}/generate-social-advice
+**Summary:** Generate Task Social Advice
+**Description:** Generate social advice for a specific task based on execution procedures
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
 **Responses:**
 - `200`: Successful Response
 - `422`: Validation Error
