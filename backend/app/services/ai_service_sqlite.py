@@ -176,7 +176,8 @@ class AIServiceSQLite:
   "participant": "你",
   "urgency": "low|high",
   "importance": "low|high",
-  "difficulty": 1-10
+  "difficulty": 1-10,
+  "cost_time_hours": 2.5
 }"""
         
         json_template_multi = """[
@@ -188,7 +189,8 @@ class AIServiceSQLite:
     "participant": "你",
     "urgency": "low|high",
     "importance": "low|high",
-    "difficulty": 1-10
+    "difficulty": 1-10,
+    "cost_time_hours": 2.5
   },
   {
     "title": "任务2标题",
@@ -198,7 +200,8 @@ class AIServiceSQLite:
     "participant": "你",
     "urgency": "low|high",
     "importance": "low|high",
-    "difficulty": 1-10
+    "difficulty": 1-10,
+    "cost_time_hours": 1.0
   }
 ]"""
         
@@ -216,8 +219,9 @@ class AIServiceSQLite:
    - urgency（紧迫性）: "low"或"high" - 是否有时间限制，需要立即关注
    - importance（重要性）: "low"或"high" - 是否对长期目标或个人成长价值有重要贡献，结合用户的职位类型、职级、是否管理层判断
 7. difficulty是1-10的数字，基于任务复杂度，需要结合用户的职位类型、职级来判断
-8. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
-9. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
+8. cost_time_hours: 根据任务的难度和用户的职级能力来给出预估的任务时间（以小时为单位），结合用户的职位类型、职级来判断。考虑用户的经验水平，新手级别的任务可能需要更多时间，高级/管理层可能完成相同任务用时更短。返回数值类型，支持小数（如0.5, 1.5, 2.5等）
+9. 如果识别到多个独立任务，返回JSON数组；如果只有一个任务，返回单个JSON对象
+10. 重要：返回纯净的JSON格式，不要添加任何注释（//或/**/）
 
 单任务返回格式：
 {json_template_single}
@@ -586,7 +590,8 @@ class AIServiceSQLite:
             "participant": "你",
             "urgency": "low",
             "importance": "low",
-            "difficulty": 5
+            "difficulty": 5,
+            "cost_time_hours": 2.0
         }
 
     def _validate_single_task(self, task_data: Dict[str, Any], original_text: str, logger) -> Dict[str, Any]:
@@ -614,6 +619,16 @@ class AIServiceSQLite:
             except (ValueError, TypeError):
                 difficulty = 5  # Default on conversion error
         
+        # Handle cost_time_hours field - can be null or number
+        cost_time_raw = task_data.get("cost_time_hours", 2.0)
+        if cost_time_raw is None:
+            cost_time_hours = 2.0  # Default value when null
+        else:
+            try:
+                cost_time_hours = max(0.1, float(cost_time_raw))  # Minimum 0.1 hours (6 minutes)
+            except (ValueError, TypeError):
+                cost_time_hours = 2.0  # Default on conversion error
+        
         validated_data = {
             "title": title,
             "content": content,
@@ -622,7 +637,8 @@ class AIServiceSQLite:
             "participant": task_data.get("participant", "你"),
             "urgency": task_data.get("urgency", "low"),
             "importance": task_data.get("importance", "low"),
-            "difficulty": difficulty
+            "difficulty": difficulty,
+            "cost_time_hours": cost_time_hours
         }
         
         # Validate urgency and importance

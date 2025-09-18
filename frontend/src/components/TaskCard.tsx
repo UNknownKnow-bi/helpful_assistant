@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import TaskProcedurePopup from '@/components/TaskProcedurePopup'
 import type { Task } from '@/types'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { PlayCircle, Edit3, Trash2 } from 'lucide-react'
+import { PlayCircle, Edit3, Trash2, Check } from 'lucide-react'
 
 interface TaskCardProps {
   task: Task
@@ -25,9 +25,15 @@ const importanceColors = {
 }
 
 const statusColors = {
-  pending: 'text-gray-600 bg-gray-100 text-gray-700',
-  in_progress: 'text-blue-600 bg-blue-100 text-blue-700',
-  completed: 'text-primary-600 bg-primary-100 text-primary-700'
+  undo: 'text-gray-600 bg-gray-100 text-gray-700',
+  done: 'text-green-600 bg-green-100 text-green-700'
+}
+
+const deadlineCategoryColors = {
+  '进行中': 'text-blue-600 bg-blue-100',
+  '完成': 'text-green-600 bg-green-100',
+  '已过期': 'text-red-600 bg-red-100',
+  '仅剩': 'text-orange-600 bg-orange-100'  // For "仅剩X天" or "仅剩X小时"
 }
 
 const urgencyLabels = {
@@ -41,9 +47,8 @@ const importanceLabels = {
 }
 
 const statusLabels = {
-  pending: '待办',
-  in_progress: '进行中',
-  completed: '已完成'
+  undo: '待办',
+  done: '已完成'
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -53,6 +58,58 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onStatusChange 
 }) => {
   const [showProcedurePopup, setShowProcedurePopup] = useState(false)
+  const [currentDeadlineCategory, setCurrentDeadlineCategory] = useState(task.deadline_category || '')
+
+  // Real-time countdown calculation
+  const calculateDeadlineCategory = (deadline?: string, status?: string): string => {
+    if (status === 'done') {
+      return '完成'
+    }
+    
+    if (!deadline) {
+      return '进行中'  // No deadline, assume in progress
+    }
+    
+    try {
+      // Parse deadline to datetime
+      const deadlineDate = new Date(deadline)
+      const now = new Date()
+      
+      // Calculate time difference
+      const timeDiff = deadlineDate.getTime() - now.getTime()
+      const totalHours = timeDiff / (1000 * 60 * 60)
+      
+      if (totalHours < 0) {
+        return '已过期'
+      } else if (totalHours <= 24) {
+        const hours = Math.max(1, Math.floor(totalHours))
+        return `仅剩${hours}小时`
+      } else if (totalHours <= 120) {  // 5 days = 120 hours
+        const days = Math.max(1, Math.floor(totalHours / 24))
+        return `仅剩${days}天`
+      } else {
+        return '进行中'
+      }
+    } catch {
+      return '进行中'  // Default to in progress if parsing fails
+    }
+  }
+
+  // Update deadline category every minute
+  useEffect(() => {
+    const updateCategory = () => {
+      const newCategory = calculateDeadlineCategory(task.deadline, task.status)
+      setCurrentDeadlineCategory(newCategory)
+    }
+
+    // Update immediately
+    updateCategory()
+    
+    // Update every minute (60000ms)
+    const interval = setInterval(updateCategory, 60000)
+    
+    return () => clearInterval(interval)
+  }, [task.deadline, task.status])
   const formatDate = (dateString?: string) => {
     if (!dateString) return null
     try {
@@ -76,10 +133,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const handleStatusChange = () => {
     if (!onStatusChange) return
     
-    const statusOrder: Task['status'][] = ['pending', 'in_progress', 'completed']
-    const currentIndex = statusOrder.indexOf(task.status)
-    const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length]
+    // Simple toggle between undo and done
+    const nextStatus = task.status === 'undo' ? 'done' : 'undo'
     onStatusChange(task.id, nextStatus)
+  }
+
+  const getDeadlineCategoryColor = (category: string) => {
+    if (category.includes('仅剩')) {
+      return deadlineCategoryColors['仅剩']
+    }
+    return deadlineCategoryColors[category as keyof typeof deadlineCategoryColors] || deadlineCategoryColors['进行中']
   }
 
   return (
@@ -90,7 +153,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
       {/* Task metadata */}
       <div className="space-y-2 text-xs text-neutral-500 mb-3">
         {task.deadline && (
-          <p>截止时间: <span className="text-neutral-900">{formatDate(task.deadline)}</span></p>
+          <div className="flex items-center gap-2">
+            <span>截止:</span>
+            <span className="text-neutral-900">{formatDate(task.deadline)}</span>
+            {currentDeadlineCategory && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getDeadlineCategoryColor(currentDeadlineCategory)}`}>
+                {currentDeadlineCategory}
+              </span>
+            )}
+          </div>
         )}
         {task.assignee && (
           <p>提出人: <span className="text-neutral-900">{task.assignee}</span></p>
@@ -105,6 +176,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <span className="ml-1 text-neutral-900">({task.difficulty}/10)</span>
           </div>
         </div>
+        {task.cost_time_hours && (
+          <div className="flex items-center gap-2">
+            <span>预估时间:</span>
+            <span className="text-neutral-900">{task.cost_time_hours}小时</span>
+          </div>
+        )}
       </div>
       
       {/* Tags and Actions */}
@@ -156,9 +233,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
           <button 
             className="p-1.5 rounded-md hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900"
             onClick={handleStatusChange}
-            title={task.status === 'completed' ? '重新开始' : '下一步'}
+            title={task.status === 'done' ? '标记为待办' : '标记为完成'}
           >
-            <span className="text-sm">{task.status === 'completed' ? '↻' : '→'}</span>
+            {task.status === 'done' ? (
+              <Check className="w-4 h-4 text-green-600" />
+            ) : (
+              <span className="text-sm">→</span>
+            )}
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **✨ interactive procedure management with completion tracking and inline editing**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **🆕 AI-powered time estimation with user expertise integration**, **✨ interactive procedure management with completion tracking and inline editing**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
 
 ## Base URL
 ```
@@ -297,7 +297,8 @@ Create a new task manually with automatic execution procedure and social intelli
   "participant": "你",
   "urgency": "high",
   "importance": "high",
-  "difficulty": 7
+  "difficulty": 7,
+  "cost_time_hours": 8.5
 }
 ```
 
@@ -313,6 +314,7 @@ Create a new task manually with automatic execution procedure and social intelli
   "urgency": "high",
   "importance": "high",
   "difficulty": 7,
+  "cost_time_hours": 8.5,
   "source": "manual",
   "status": "undo",
   "deadline_category": "仅剩2天",
@@ -365,6 +367,7 @@ Generate structured task cards from text input using AI with automatic execution
       "urgency": "high",
       "importance": "high",
       "difficulty": 7,
+      "cost_time_hours": 6.0,
       "source": "ai_generated",
       "status": "undo",
       "created_at": "2025-01-01T00:00:00Z",
@@ -404,7 +407,8 @@ Generate task preview from text input using AI **without saving to database**. P
       "participant": "你",
       "urgency": "high",
       "importance": "high",
-      "difficulty": 7
+      "difficulty": 7,
+      "cost_time_hours": 6.0
     },
     {
       "title": "参加项目评审会议",
@@ -414,7 +418,8 @@ Generate task preview from text input using AI **without saving to database**. P
       "participant": "你",
       "urgency": "high",
       "importance": "high",
-      "difficulty": 4
+      "difficulty": 4,
+      "cost_time_hours": 2.5
     }
   ],
   "message": "已生成 2 个任务预览，请确认后保存"
@@ -451,7 +456,8 @@ Confirm and save preview tasks to database with automatic execution procedure an
       "participant": "你",
       "urgency": "high",
       "importance": "high",
-      "difficulty": 7
+      "difficulty": 7,
+      "cost_time_hours": 6.0
     },
     {
       "title": "参加项目评审会议",
@@ -461,7 +467,8 @@ Confirm and save preview tasks to database with automatic execution procedure an
       "participant": "你",
       "urgency": "high",
       "importance": "high",
-      "difficulty": 4
+      "difficulty": 4,
+      "cost_time_hours": 2.5
     }
   ]
 }
@@ -480,6 +487,7 @@ Confirm and save preview tasks to database with automatic execution procedure an
     "urgency": "high",
     "importance": "high",
     "difficulty": 7,
+    "cost_time_hours": 6.0,
     "source": "ai_generated",
     "status": "undo",
     "deadline_category": "进行中",
@@ -498,6 +506,7 @@ Confirm and save preview tasks to database with automatic execution procedure an
     "urgency": "high",
     "importance": "high",
     "difficulty": 4,
+    "cost_time_hours": 2.5,
     "source": "ai_generated",
     "status": "undo",
     "deadline_category": "进行中",
@@ -973,6 +982,7 @@ All fields are optional. Only provided fields will be updated.
   "urgency": "low",
   "importance": "high",
   "difficulty": 8,
+  "cost_time_hours": 5.5,
   "status": "in_progress"
 }
 ```
@@ -986,6 +996,7 @@ All fields are optional. Only provided fields will be updated.
 - `urgency` (enum): "low" or "high" - affects Eisenhower Matrix positioning
 - `importance` (enum): "low" or "high" - affects Eisenhower Matrix positioning  
 - `difficulty` (integer): Task difficulty from 1-10
+- `cost_time_hours` (float): Estimated time to complete task in hours (supports decimal values like 0.5, 1.5, 2.0)
 - `status` (enum): "pending", "in_progress", or "completed"
 
 **Eisenhower Matrix Integration:**
@@ -1007,6 +1018,7 @@ Changes to `urgency` and `importance` automatically reposition tasks in the dash
   "urgency": "low",
   "importance": "high",
   "difficulty": 8,
+  "cost_time_hours": 5.5,
   "source": "manual",
   "status": "in_progress",
   "execution_procedures": [
@@ -1338,6 +1350,7 @@ Delete work relationship.
   "urgency": "enum: low|high",
   "importance": "enum: low|high",
   "difficulty": "integer (1-10)",
+  "cost_time_hours": "float (estimated completion time in hours, supports decimals like 0.5, 1.5, 2.0)",
   "source": "enum: manual|extension|ai_generated",
   "status": "enum: pending|in_progress|completed",
   "execution_procedures": "array|null",
@@ -1387,7 +1400,8 @@ Task preview data for two-stage workflow (no database fields):
   "participant": "string (default: '你')",
   "urgency": "enum: low|high",
   "importance": "enum: low|high", 
-  "difficulty": "integer (1-10)"
+  "difficulty": "integer (1-10)",
+  "cost_time_hours": "float (estimated completion time in hours)"
 }
 ```
 

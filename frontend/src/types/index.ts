@@ -28,6 +28,7 @@ export interface Task {
   urgency: 'low' | 'high'  // 紧迫性
   importance: 'low' | 'high'  // 重要性
   difficulty: number
+  cost_time_hours: number  // 预估时间（小时）
   source: 'manual' | 'extension' | 'ai_generated'
   status: 'undo' | 'done'
   deadline_category?: string  // 进行中|仅剩X天|仅剩X小时|完成|已过期
@@ -46,6 +47,7 @@ export interface TaskCreate {
   urgency?: 'low' | 'high'
   importance?: 'low' | 'high'
   difficulty?: number
+  cost_time_hours?: number
 }
 
 export interface TaskUpdate {
@@ -57,6 +59,7 @@ export interface TaskUpdate {
   urgency?: 'low' | 'high'
   importance?: 'low' | 'high'
   difficulty?: number
+  cost_time_hours?: number
   status?: 'undo' | 'done'
 }
 
@@ -70,6 +73,7 @@ export interface TaskPreview {
   urgency: 'low' | 'high'
   importance: 'low' | 'high'
   difficulty: number
+  cost_time_hours: number
 }
 
 export interface TaskPreviewResponse {

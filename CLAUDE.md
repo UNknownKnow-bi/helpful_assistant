@@ -114,16 +114,6 @@ cd backend && python3 open_docs.py
 ## Core Features
 
 ### 1. AI Task Card Generation (任务卡片生成)
-
-**✅ ENHANCED: Two-Stage Task Preview & Confirmation System**
-
-**🆕 Two-Stage Workflow (Latest Update):**
-- **Stage 1: Preview Generation** - AI generates task data without database save, displayed in interactive popup
-- **Stage 2: Task Confirmation** - User reviews, edits, and confirms tasks before saving to database
-- **Full Editing Capability** - All task properties (title, content, deadline, assignee, participant, urgency, importance, difficulty) editable in preview mode
-- **Real-time Validation** - Visual feedback with priority badges, difficulty sliders, and form validation
-- **No Database Pollution** - Failed or unwanted generations don't create database entries
-
 **Core Functionality:**
 - Accept Chinese text input from users OR image uploads with OCR text extraction
 - Use AI to parse and extract task information using **Eisenhower Matrix** evaluation with **user profile context**
@@ -133,6 +123,7 @@ cd backend && python3 open_docs.py
 - **🆕 Personalized Difficulty Assessment**: Task complexity evaluation based on user's job type, level, and management status
 - **🆕 Smart Assignee/Participant Recognition**: Automatic identification of colleagues from user's work relationships
 - **🆕 Context-Aware Priority Assessment**: Importance evaluation considering user's career stage and role responsibilities
+- **🆕 AI-Powered Time Estimation**: Intelligent cost time prediction in hours based on task complexity and user expertise level
 - OCR Integration: EasyOCR-powered image text extraction with Chinese/English support
 
 **🆕 Task Preview System:**
@@ -140,6 +131,7 @@ cd backend && python3 open_docs.py
 - **Comprehensive Editing**: Inline editing of all task fields with real-time updates
 - **Visual Priority System**: Color-coded urgency/importance badges with dropdown selection
 - **Difficulty Visualization**: Star-based difficulty display with interactive slider
+- **Time Estimation Input**: Editable cost time field with decimal hour precision (0.5, 1.5, 2.0, etc.)
 - **Date/Time Picker**: Integrated datetime-local input for deadline selection
 - **Form Validation**: Real-time validation with disabled save for invalid tasks
 - **Batch Operations**: Confirm and save multiple tasks simultaneously
@@ -394,13 +386,6 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 
 **📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details and [Social Intelligence API](backend/API_DOCUMENTATION.md) for execution procedures and social advice endpoints.
 
-**🗄️ Database Integration:**
-- **Dual Columns**: Added `execution_procedures` and `social_advice` TEXT columns to tasks table
-- **JSON Storage**: Stores structured arrays as JSON strings (SQLite compatibility)
-- **Migration Support**: Automated database migration scripts
-- **Pydantic Validation**: Automatic JSON parsing and validation in response models
-- **🆕 Social Advice Schema**: Stores procedure-linked social intelligence recommendations
-
 **⚡ Enhanced Execution Workflow:**
 1. **Task Creation**: User creates task (manual/AI/image)
 2. **Context Gathering**: System retrieves user profile and colleague information
@@ -435,28 +420,9 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **All workflows**: Seamless 3-step AI integration across all task creation methods
 - **🆕 Frontend UI**: "执行指导" button opens popup with dual tabs for procedures + social advice
 
-**📊 Enhanced Benefits:**
-- **Dual Intelligence**: Users get both operational procedures AND social intelligence guidance
-- **Context Awareness**: Procedures and advice tailored to user's role, relationships, and colleague personalities
-- **Professional Quality**: Project management (SMART/RACI) + organizational psychology best practices
-- **🆕 Social Success**: Maximizes workplace collaboration success through personality-aware communication strategies
-- **Time Saving**: Eliminates both manual task planning AND social strategy development effort
-- **Risk Mitigation**: Proactively identifies and prevents interpersonal obstacles
-- **Consistency**: Standardized approach across all tasks with comprehensive guidance
-- **🆕 Interactive Progress Tracking**: Visual completion tracking with checkboxes and real-time status updates
-- **🆕 Flexible Content Management**: Edit, delete, and reorganize procedure steps as tasks evolve
-- **🆕 Focused Workflow**: Auto-folding completed procedures maintains clean, distraction-free interface
-- **🆕 User-Controlled Visibility**: Manual fold/expand controls for personalized procedure view management
-
 ## 🎨 UI/UX Refactoring & Enhancement (智时助手界面重构)
 
 **✅ COMPLETED** - Comprehensive UI redesign implementing modern design principles with sophisticated color theming and enhanced user experience.
-
-### **🎯 Design Philosophy**
-- **Professional Sophistication**: Dark blue-gray theme (#2c3e50) conveying trust, reliability, and business elegance
-- **Eisenhower Matrix Integration**: Strategic task organization based on proven productivity methodology
-- **Modern Minimalism**: Clean, spacious design with reduced visual clutter and enhanced focus
-- **Accessibility-First**: High contrast ratios, clear visual hierarchy, and intuitive interaction patterns
 
 ### **🎨 Color System Overhaul**
 **Primary Color Palette:**
@@ -528,32 +494,12 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **`_build_social_advice_prompt()`** - Big Five personality-based social intelligence advice
 - **`_build_ocr_prompt()`** - Chinese/English text extraction from images
 
-**⚙️ Configuration Management:**
-- **Class Constants**: `DEFAULT_TIMEOUT`, `EXTENDED_TIMEOUT`, `DEFAULT_MAX_TOKENS`, `TITLE_MAX_TOKENS`
-- **Dynamic Token Limits**: Adaptive max_tokens based on model capabilities and task requirements
-- **Reasoning Model Support**: Enhanced timeout and token allocation for DeepSeek-R1 reasoning models
-
 ### **Orchestrator Pattern Implementation**
 
 **🎼 Method Transformation:**
 - **`generate_task_from_text()`** - Refactored to 7-step orchestrator: Provider → Context → Prompt → Request → Parse → Validate → Return
 - **`generate_session_title()`** - Streamlined to 4-step pattern: Provider → Prompt → Request → Clean
 - **Clear Separation**: Data gathering → Prompt building → AI request → Response processing
-
-## Development Phases
-
-1. **Foundation Setup** (Week 1): ✅ **COMPLETED** - FastAPI backend setup, database models, authentication
-2. **AI Service Layer** (Week 2): ✅ **ENHANCED & COMPLETED** - HTTPx integration, provider management, streaming, SQLite migration, full CRUD operations, **✅ Model categorization system**, **🆕 Comprehensive architecture refactoring**
-3. **Task Generation** (Week 3): ✅ **COMPLETED** - Full AI-powered multi-task generation, CRUD operations, UI integration, **🆕 EasyOCR image support**
-4. **Chat Interface** (Week 4): ✅ **COMPLETED** - Real-time chat, WebSocket streaming, thinking blocks, SQLite persistence, **✅ Dynamic model selection**
-5. **User Profiling** (Week 5): ✅ **ENHANCED & COMPLETED** - **🆕 Comprehensive colleague management system**, Big Five personality assessment, enhanced work relationship tracking, enterprise-grade form persistence
-6. **Frontend Integration** (Week 6): ✅ **COMPLETED** - Complete UI with task management, chat integration, responsive design, **✅ Categorized AI Config interface**
-7. **Task Execution Guidance** (Week 7): ✅ **ENHANCED & COMPLETED** - **🆕 3-Step AI Workflow**: Task Execution Procedures + Social Intelligence Advice System, automatic dual AI generation, user context integration, background processing with database session management
-8. **Code Architecture & Optimization** (Week 8): ✅ **COMPLETED** - **🆕 AI Service Layer Refactoring**: 5-step orchestrator pattern, service abstractions, prompt engineering separation, enhanced error handling, code quality improvements
-9. **🆕 UI/UX Refactoring & Enhancement** (Week 9): ✅ **COMPLETED** - **🎨 Complete UI Redesign**: Eisenhower Matrix dashboard, modern dark blue-gray theme (#2c3e50), sophisticated task card design, enhanced sidebar navigation, full edit functionality implementation
-10. **🆕 Real-Time Deadline Timer System** (Week 10): ✅ **COMPLETED** - **⏰ Dynamic Countdown Implementation**: 5-category deadline tracking, auto-updating timer every minute, two-state status toggle (undo/done), color-coded visual feedback, timezone-aware calculations
-11. **🆕 Completed Tasks Archive System** (Week 11): ✅ **COMPLETED** - **📋 Archive Implementation**: Dedicated completed tasks section, automatic filtering from Eisenhower Matrix, status-based task separation, full management capabilities for archived tasks, clean interface design
-12. **Testing & Polish** (Week 12-13): ⏳ **IN PROGRESS** - System integration testing, performance optimization, deployment preparation
 
 ## Next Priority Tasks
 

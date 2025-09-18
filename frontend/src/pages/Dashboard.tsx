@@ -81,6 +81,15 @@ export default function Dashboard() {
     },
   })
 
+  // Update task status
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: 'undo' | 'done' }) => 
+      tasksApi.updateStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
+
   // Delete task
   const deleteTaskMutation = useMutation({
     mutationFn: (id: number) => tasksApi.delete(id),
@@ -105,6 +114,15 @@ export default function Dashboard() {
     if (!editingTask) return
     
     const deadline = formData.get('deadline') as string
+    const costTimeHoursStr = formData.get('cost_time_hours') as string
+    let costTimeHours = editingTask.cost_time_hours // default to current value
+    if (costTimeHoursStr && costTimeHoursStr.trim() !== '') {
+      const parsed = parseFloat(costTimeHoursStr)
+      if (!isNaN(parsed) && parsed > 0) {
+        costTimeHours = parsed
+      }
+    }
+    
     const updateData: TaskUpdate = {
       title: formData.get('title') as string,
       content: formData.get('content') as string,
@@ -113,7 +131,8 @@ export default function Dashboard() {
       participant: formData.get('participant') as string,
       urgency: formData.get('urgency') as 'low' | 'high',
       importance: formData.get('importance') as 'low' | 'high',
-      difficulty: parseInt(formData.get('difficulty') as string)
+      difficulty: parseInt(formData.get('difficulty') as string),
+      cost_time_hours: costTimeHours
     }
     
     updateTaskMutation.mutate({
@@ -127,12 +146,16 @@ export default function Dashboard() {
     (task.assignee && task.assignee.toLowerCase().includes(searchText.toLowerCase()))
   )
 
-  // Categorize tasks into Eisenhower Matrix quadrants
+  // Separate active tasks (undo) and completed tasks (done)
+  const activeTasks = filteredTasks.filter(task => task.status === 'undo')
+  const completedTasks = filteredTasks.filter(task => task.status === 'done')
+
+  // Categorize only active tasks into Eisenhower Matrix quadrants
   const categorizedTasks = {
-    urgent_important: filteredTasks.filter(t => t.urgency === 'high' && t.importance === 'high'),
-    important_not_urgent: filteredTasks.filter(t => t.urgency === 'low' && t.importance === 'high'),
-    urgent_not_important: filteredTasks.filter(t => t.urgency === 'high' && t.importance === 'low'),
-    not_urgent_not_important: filteredTasks.filter(t => t.urgency === 'low' && t.importance === 'low'),
+    urgent_important: activeTasks.filter(t => t.urgency === 'high' && t.importance === 'high'),
+    important_not_urgent: activeTasks.filter(t => t.urgency === 'low' && t.importance === 'high'),
+    urgent_not_important: activeTasks.filter(t => t.urgency === 'high' && t.importance === 'low'),
+    not_urgent_not_important: activeTasks.filter(t => t.urgency === 'low' && t.importance === 'low'),
   }
 
   // Handle scroll to load more tasks
@@ -250,9 +273,9 @@ export default function Dashboard() {
                   key={task.id}
                   task={task}
                   onStatusChange={(taskId, status) => {
-                    updateTaskMutation.mutate({
+                    updateStatusMutation.mutate({
                       id: taskId,
-                      update: { status }
+                      status
                     })
                   }}
                   onDelete={handleDeleteTask}
@@ -294,9 +317,9 @@ export default function Dashboard() {
                   key={task.id}
                   task={task}
                   onStatusChange={(taskId, status) => {
-                    updateTaskMutation.mutate({
+                    updateStatusMutation.mutate({
                       id: taskId,
-                      update: { status }
+                      status
                     })
                   }}
                   onDelete={handleDeleteTask}
@@ -338,9 +361,9 @@ export default function Dashboard() {
                   key={task.id}
                   task={task}
                   onStatusChange={(taskId, status) => {
-                    updateTaskMutation.mutate({
+                    updateStatusMutation.mutate({
                       id: taskId,
-                      update: { status }
+                      status
                     })
                   }}
                   onDelete={handleDeleteTask}
@@ -382,9 +405,9 @@ export default function Dashboard() {
                   key={task.id}
                   task={task}
                   onStatusChange={(taskId, status) => {
-                    updateTaskMutation.mutate({
+                    updateStatusMutation.mutate({
                       id: taskId,
-                      update: { status }
+                      status
                     })
                   }}
                   onDelete={handleDeleteTask}
@@ -411,32 +434,81 @@ export default function Dashboard() {
               <form onSubmit={(e) => {
                 e.preventDefault()
                 const formData = new FormData(e.target as HTMLFormElement)
+                const costTimeHoursStr = formData.get('cost_time_hours') as string
+                let costTimeHours = 2.0 // default value
+                if (costTimeHoursStr && costTimeHoursStr.trim() !== '') {
+                  const parsed = parseFloat(costTimeHoursStr)
+                  if (!isNaN(parsed) && parsed > 0) {
+                    costTimeHours = parsed
+                  }
+                }
+                
                 createTaskMutation.mutate({
+                  title: formData.get('title') as string,
                   content: formData.get('content') as string,
                   assignee: formData.get('assignee') as string || undefined,
-                  priority: (formData.get('priority') as 'low' | 'medium' | 'high') || 'medium',
+                  participant: formData.get('participant') as string || '你',
+                  urgency: formData.get('urgency') as 'low' | 'high' || 'low',
+                  importance: formData.get('importance') as 'low' | 'high' || 'low',
                   difficulty: parseInt(formData.get('difficulty') as string) || 5,
+                  cost_time_hours: costTimeHours
                 })
               }} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">任务内容</label>
-                  <Input name="content" required placeholder="输入任务描述..." />
+                  <label className="block text-sm font-medium mb-1">任务标题</label>
+                  <Input name="title" required placeholder="输入任务标题..." />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">负责人</label>
+                  <label className="block text-sm font-medium mb-1">任务内容</label>
+                  <textarea 
+                    name="content" 
+                    required 
+                    placeholder="输入任务描述..." 
+                    className="w-full p-2 border border-input bg-background rounded-md text-sm resize-none"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">提出人</label>
                   <Input name="assignee" placeholder="可选" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">优先级</label>
-                  <select name="priority" className="w-full border border-input bg-background px-3 py-2 text-sm rounded-md">
-                    <option value="low">低</option>
-                    <option value="medium" defaultChecked>中</option>
-                    <option value="high">高</option>
-                  </select>
+                  <label className="block text-sm font-medium mb-1">参与人</label>
+                  <Input name="participant" defaultValue="你" placeholder="参与人" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">难度 (1-10)</label>
-                  <Input name="difficulty" type="number" min="1" max="10" defaultValue="5" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">紧迫性</label>
+                    <select name="urgency" className="w-full border border-input bg-background px-3 py-2 text-sm rounded-md">
+                      <option value="low">不紧急</option>
+                      <option value="high">紧急</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">重要性</label>
+                    <select name="importance" className="w-full border border-input bg-background px-3 py-2 text-sm rounded-md">
+                      <option value="low">不重要</option>
+                      <option value="high">重要</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">难度 (1-10)</label>
+                    <Input name="difficulty" type="number" min="1" max="10" defaultValue="5" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">预估时间 (小时)</label>
+                    <Input 
+                      name="cost_time_hours" 
+                      type="number" 
+                      min="0.1" 
+                      max="100" 
+                      step="0.1" 
+                      defaultValue="2" 
+                      placeholder="2"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setShowManualForm(false)}>
@@ -512,9 +584,23 @@ export default function Dashboard() {
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">难度 (1-10)</label>
-                  <Input name="difficulty" type="number" min="1" max="10" defaultValue={editingTask.difficulty} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">难度 (1-10)</label>
+                    <Input name="difficulty" type="number" min="1" max="10" defaultValue={editingTask.difficulty} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">预估时间 (小时)</label>
+                    <Input 
+                      name="cost_time_hours" 
+                      type="number" 
+                      min="0.1" 
+                      max="100" 
+                      step="0.1" 
+                      defaultValue={editingTask.cost_time_hours} 
+                      placeholder="2"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => {
@@ -531,6 +617,37 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Completed Tasks Archive Section */}
+      {completedTasks.length > 0 && (
+        <section className="mt-8">
+          <div className="bg-white p-6 rounded-xl border border-neutral-200">
+            <div className="flex items-center mb-4">
+              <span className="w-3 h-3 rounded-full bg-green-500 mr-3"></span>
+              <h4 className="font-semibold text-lg text-gray-900">已完成任务</h4>
+              <span className="ml-auto text-sm font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                {completedTasks.length}
+              </span>
+            </div>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {completedTasks.map((task) => (
+                <TaskCard 
+                  key={task.id}
+                  task={task}
+                  onStatusChange={(taskId, status) => {
+                    updateStatusMutation.mutate({
+                      id: taskId,
+                      status
+                    })
+                  }}
+                  onDelete={handleDeleteTask}
+                  onEdit={handleEditTask}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )

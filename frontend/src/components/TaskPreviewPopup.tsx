@@ -104,7 +104,8 @@ const TaskPreviewPopup: React.FC<TaskPreviewPopupProps> = ({
       participant: task.participant,
       urgency: task.urgency,
       importance: task.importance,
-      difficulty: task.difficulty
+      difficulty: task.difficulty,
+      cost_time_hours: task.cost_time_hours
     }))
     onConfirm(tasksToCreate)
   }
@@ -253,6 +254,36 @@ const TaskPreviewPopup: React.FC<TaskPreviewPopupProps> = ({
                         <div className="flex items-center">
                           {getDifficultyStars(task.difficulty)}
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Cost Time Hours */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        预估时间
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0.1"
+                          max="100"
+                          step="0.1"
+                          value={task.cost_time_hours}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            if (value === '') {
+                              handleTaskChange(index, 'cost_time_hours', 0.1)
+                            } else {
+                              const parsed = parseFloat(value)
+                              if (!isNaN(parsed) && parsed > 0) {
+                                handleTaskChange(index, 'cost_time_hours', parsed)
+                              }
+                            }
+                          }}
+                          disabled={isConfirming}
+                          className="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                        <span className="text-sm text-gray-600">小时</span>
                       </div>
                     </div>
                   </div>

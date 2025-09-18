@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, JSON, ForeignKey, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -51,8 +51,9 @@ class Task(Base):
     urgency = Column(String(20), default="low")  # "low", "high" - 紧迫性
     importance = Column(String(20), default="low")  # "low", "high" - 重要性
     difficulty = Column(Integer, default=5)  # 1-10 scale
+    cost_time_hours = Column(Float, default=2.0)  # Estimated time in hours (supports decimals like 0.5, 1.5, 2.5)
     source = Column(String(20), default="manual")  # "manual", "extension"
-    status = Column(String(20), default="pending")  # "pending", "in_progress", "completed"
+    status = Column(String(20), default="undo")  # "undo", "done"
     execution_procedures = Column(Text, nullable=True)  # Task execution guidance from AI (JSON string)
     social_advice = Column(Text, nullable=True)  # Social intelligence advice from AI (JSON string)
     created_at = Column(DateTime, default=datetime.utcnow)

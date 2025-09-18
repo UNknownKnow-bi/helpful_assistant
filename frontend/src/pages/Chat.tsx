@@ -465,7 +465,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="h-[calc(100vh-88px)] flex">
+    <div className="h-full flex">
       {/* Sessions Sidebar */}
       <div className="w-80 bg-white border-r flex flex-col">
         <div className="p-4 border-b">

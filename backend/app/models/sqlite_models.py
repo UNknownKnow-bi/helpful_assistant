@@ -82,6 +82,7 @@ class TaskBase(BaseModel):
     urgency: str = "low"  # "low", "high" - 紧迫性
     importance: str = "low"  # "low", "high" - 重要性
     difficulty: int = Field(default=5, ge=1, le=10)
+    cost_time_hours: float = Field(default=2.0, ge=0.1)  # Estimated time in hours
 
 class TaskCreate(TaskBase):
     pass
@@ -95,6 +96,7 @@ class TaskUpdate(BaseModel):
     urgency: Optional[str] = None
     importance: Optional[str] = None
     difficulty: Optional[int] = Field(None, ge=1, le=10)
+    cost_time_hours: Optional[float] = Field(None, ge=0.1)  # Estimated time in hours
     status: Optional[str] = None
 
 class Task(TaskBase):

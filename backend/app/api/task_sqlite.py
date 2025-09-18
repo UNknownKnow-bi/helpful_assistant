@@ -91,8 +91,10 @@ async def get_task_stats(
     not_urgent_important = len([t for t in tasks if t.urgency == "low" and t.importance == "high"])
     not_urgent_not_important = len([t for t in tasks if t.urgency == "low" and t.importance == "low"])
     
-    # Average difficulty
+    # Average difficulty and cost time
     avg_difficulty = sum([t.difficulty for t in tasks]) / total if total > 0 else 0
+    avg_cost_time = sum([t.cost_time_hours for t in tasks]) / total if total > 0 else 0
+    total_cost_time = sum([t.cost_time_hours for t in tasks])
     
     return {
         "total": total,
@@ -105,7 +107,9 @@ async def get_task_stats(
             "not_urgent_important": not_urgent_important,
             "not_urgent_not_important": not_urgent_not_important
         },
-        "average_difficulty": round(avg_difficulty, 1)
+        "average_difficulty": round(avg_difficulty, 1),
+        "average_cost_time_hours": round(avg_cost_time, 1),
+        "total_cost_time_hours": round(total_cost_time, 1)
     }
 
 # Task CRUD Operations
@@ -126,6 +130,7 @@ async def create_task(
         urgency=task.urgency,
         importance=task.importance,
         difficulty=task.difficulty,
+        cost_time_hours=task.cost_time_hours,
         source="manual"
     )
     db.add(db_task)
@@ -155,7 +160,8 @@ async def create_task(
                 "participant": background_task.participant,
                 "urgency": background_task.urgency,
                 "importance": background_task.importance,
-                "difficulty": background_task.difficulty
+                "difficulty": background_task.difficulty,
+                "cost_time_hours": background_task.cost_time_hours
             }
             
             execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
@@ -400,7 +406,8 @@ async def regenerate_task_execution_procedures(
             "participant": task.participant,
             "urgency": task.urgency,
             "importance": task.importance,
-            "difficulty": task.difficulty
+            "difficulty": task.difficulty,
+            "cost_time_hours": task.cost_time_hours
         }
         
         execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
@@ -471,6 +478,7 @@ async def generate_task_from_text(
                 urgency=task_data.get("urgency", "low"),
                 importance=task_data.get("importance", "low"),
                 difficulty=task_data.get("difficulty", 5),
+                cost_time_hours=task_data.get("cost_time_hours", 2.0),
                 source="ai_generated"
             )
             
@@ -508,7 +516,8 @@ async def generate_task_from_text(
                     "participant": background_task.participant,
                     "urgency": background_task.urgency,
                     "importance": background_task.importance,
-                    "difficulty": background_task.difficulty
+                    "difficulty": background_task.difficulty,
+                    "cost_time_hours": background_task.cost_time_hours
                 }
                 
                 execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
@@ -603,7 +612,8 @@ async def generate_task_preview_from_text(
                 participant=task_data.get("participant", "你"),
                 urgency=task_data.get("urgency", "low"),
                 importance=task_data.get("importance", "low"),
-                difficulty=task_data.get("difficulty", 5)
+                difficulty=task_data.get("difficulty", 5),
+                cost_time_hours=task_data.get("cost_time_hours", 2.0)
             )
             preview_tasks.append(preview_task)
         
@@ -651,6 +661,7 @@ async def confirm_and_save_tasks(
                 urgency=task_data.urgency,
                 importance=task_data.importance,
                 difficulty=task_data.difficulty,
+                cost_time_hours=task_data.cost_time_hours,
                 source="ai_generated"  # Since this comes from AI preview
             )
             
@@ -688,7 +699,8 @@ async def confirm_and_save_tasks(
                     "participant": background_task.participant,
                     "urgency": background_task.urgency,
                     "importance": background_task.importance,
-                    "difficulty": background_task.difficulty
+                    "difficulty": background_task.difficulty,
+                    "cost_time_hours": background_task.cost_time_hours
                 }
                 
                 execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
@@ -896,6 +908,7 @@ async def generate_task_from_image(
                 urgency=task_data.get("urgency", "low"),
                 importance=task_data.get("importance", "low"),
                 difficulty=task_data.get("difficulty", 5),
+                cost_time_hours=task_data.get("cost_time_hours", 2.0),
                 source="ai_generated"
             )
             
@@ -933,7 +946,8 @@ async def generate_task_from_image(
                     "participant": background_task.participant,
                     "urgency": background_task.urgency,
                     "importance": background_task.importance,
-                    "difficulty": background_task.difficulty
+                    "difficulty": background_task.difficulty,
+                    "cost_time_hours": background_task.cost_time_hours
                 }
                 
                 execution_procedures = await ai_service_sqlite.generate_task_execution_guidance(
@@ -1071,7 +1085,8 @@ async def generate_task_social_advice(
             "participant": task.participant,
             "urgency": task.urgency,
             "importance": task.importance,
-            "difficulty": task.difficulty
+            "difficulty": task.difficulty,
+            "cost_time_hours": task.cost_time_hours
         }
         
         social_advice = await ai_service_sqlite.generate_social_advice(
