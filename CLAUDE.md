@@ -47,7 +47,7 @@ helpful-assistant/
 │   │   │   ├── BasicInfoForm.tsx    # User basic information form
 │   │   │   ├── BigFivePersonality.tsx # Big Five personality tag management
 │   │   │   ├── WorkRelationshipCards.tsx # Work relationship card interface
-│   │   │   ├── TaskCard.tsx         # Task display component
+│   │   │   ├── TaskCard.tsx         # Task display component with real-time countdown timer
 │   │   │   ├── TaskGenerationForm.tsx # Task generation interface
 │   │   │   ├── Layout.tsx           # Main application layout
 │   │   │   └── ui/                  # shadcn/ui components
@@ -149,6 +149,27 @@ cd backend && python3 open_docs.py
 - **Colleague Recognition**: Utilizes work relationships database for assignee/participant identification  
 - **Personalized Difficulty Scaling**: Adjusts task complexity based on user's professional experience
 - **Role-Aware Importance Assessment**: Considers career impact and growth value for different job levels
+
+**🆕 Real-Time Deadline Timer System:**
+- **Dynamic Countdown Categories**: 5-category deadline tracking system with real-time updates
+  - **进行中** - Tasks without deadlines or >5 days remaining
+  - **仅剩X天** - Tasks with 1-5 days remaining (updates daily)
+  - **仅剩X小时** - Tasks with ≤24 hours remaining (updates hourly)
+  - **已过期** - Overdue tasks with "undo" status
+  - **完成** - Tasks marked as "done"
+- **Auto-Updating UI**: Timer updates every minute without page refresh
+- **Two-State Status System**: Simple "undo" ↔ "done" toggle with visual feedback
+- **Color-Coded Display**: Green (完成), Orange (仅剩), Red (已过期), Blue (进行中)
+- **Smart Time Calculation**: Timezone-aware deadline parsing with accurate countdown
+
+**🆕 Completed Tasks Archive System (已完成任务归档):**
+- **Archive Box**: Dedicated "已完成任务" section at the bottom of Dashboard
+- **Automatic Filtering**: Tasks with "done" status automatically move from Eisenhower Matrix to archive
+- **Clean Interface**: Eisenhower Matrix shows only active tasks (status='undo'), completed tasks in separate archive section
+- **Full Task Management**: Completed tasks retain all functionality - edit, delete, status toggle, execution guidance
+- **Visual Design**: Green color theme with task count badge, scrollable container for many archived tasks
+- **Status Restoration**: Users can toggle completed tasks back to "待办" status to return them to active matrix
+- **Search Integration**: Search functionality works across both active and completed tasks
 
 **📋 API Reference:** See [Tasks API Documentation](backend/API_DOCUMENTATION.md#task-management-apis) for complete endpoint details, request/response schemas, usage examples, and two-stage workflow implementation.
 ### 2. AI Service Configuration (AI配置)
@@ -399,6 +420,14 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **JSON Serialization**: Proper handling of dual JSON data structures in SQLite TEXT columns
 - **🆕 Frontend Integration**: TaskProcedurePopup component with tabbed interface for procedures + social advice
 
+**🆕 Interactive Procedure Management:**
+- **✅ Completion Tracking**: Individual checkbox for each procedure step (步骤一, 步骤二) with real-time status updates
+- **✏️ Inline Editing**: Direct editing of procedure content and key results with save/cancel functionality
+- **🗑️ Delete Operations**: Remove individual procedures with automatic step renumbering
+- **📁 Fold/Expand Controls**: Collapsible procedure cards showing only step titles when folded
+- **🔄 Auto-Fold on Completion**: Procedures automatically fold when marked as complete to reduce visual clutter
+- **💾 Real-time Persistence**: All changes immediately saved to database with optimistic UI updates
+
 **✅ Integration Points:**
 - **Manual Task Creation**: Both procedures and social advice generated after task save
 - **AI Task Generation**: Each generated task gets both execution procedures and social advice
@@ -414,6 +443,10 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **Time Saving**: Eliminates both manual task planning AND social strategy development effort
 - **Risk Mitigation**: Proactively identifies and prevents interpersonal obstacles
 - **Consistency**: Standardized approach across all tasks with comprehensive guidance
+- **🆕 Interactive Progress Tracking**: Visual completion tracking with checkboxes and real-time status updates
+- **🆕 Flexible Content Management**: Edit, delete, and reorganize procedure steps as tasks evolve
+- **🆕 Focused Workflow**: Auto-folding completed procedures maintains clean, distraction-free interface
+- **🆕 User-Controlled Visibility**: Manual fold/expand controls for personalized procedure view management
 
 ## 🎨 UI/UX Refactoring & Enhancement (智时助手界面重构)
 
@@ -518,7 +551,9 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 7. **Task Execution Guidance** (Week 7): ✅ **ENHANCED & COMPLETED** - **🆕 3-Step AI Workflow**: Task Execution Procedures + Social Intelligence Advice System, automatic dual AI generation, user context integration, background processing with database session management
 8. **Code Architecture & Optimization** (Week 8): ✅ **COMPLETED** - **🆕 AI Service Layer Refactoring**: 5-step orchestrator pattern, service abstractions, prompt engineering separation, enhanced error handling, code quality improvements
 9. **🆕 UI/UX Refactoring & Enhancement** (Week 9): ✅ **COMPLETED** - **🎨 Complete UI Redesign**: Eisenhower Matrix dashboard, modern dark blue-gray theme (#2c3e50), sophisticated task card design, enhanced sidebar navigation, full edit functionality implementation
-10. **Testing & Polish** (Week 10-11): ⏳ **IN PROGRESS** - System integration testing, performance optimization, deployment preparation
+10. **🆕 Real-Time Deadline Timer System** (Week 10): ✅ **COMPLETED** - **⏰ Dynamic Countdown Implementation**: 5-category deadline tracking, auto-updating timer every minute, two-state status toggle (undo/done), color-coded visual feedback, timezone-aware calculations
+11. **🆕 Completed Tasks Archive System** (Week 11): ✅ **COMPLETED** - **📋 Archive Implementation**: Dedicated completed tasks section, automatic filtering from Eisenhower Matrix, status-based task separation, full management capabilities for archived tasks, clean interface design
+12. **Testing & Polish** (Week 12-13): ⏳ **IN PROGRESS** - System integration testing, performance optimization, deployment preparation
 
 ## Next Priority Tasks
 
@@ -539,4 +574,7 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
    - Database query optimization for large dataset handling
    - AI request caching strategies for frequently used operations
    - WebSocket connection pooling and management improvements
+- to
+- to memorize
+- update claude.md with what u had done,just update the matched part with the function,no api endpoint detail,api and data schema info
 - to

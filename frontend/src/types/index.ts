@@ -9,6 +9,7 @@ export interface ExecutionProcedure {
   procedure_number: number
   procedure_content: string
   key_result: string
+  completed?: boolean  // Track completion status for each procedure
 }
 
 export interface SocialAdvice {
@@ -28,7 +29,8 @@ export interface Task {
   importance: 'low' | 'high'  // 重要性
   difficulty: number
   source: 'manual' | 'extension' | 'ai_generated'
-  status: 'pending' | 'in_progress' | 'completed'
+  status: 'undo' | 'done'
+  deadline_category?: string  // 进行中|仅剩X天|仅剩X小时|完成|已过期
   execution_procedures?: ExecutionProcedure[]  // Task execution guidance from AI
   social_advice?: SocialAdvice[]  // Social intelligence advice from AI
   created_at: string
@@ -55,7 +57,7 @@ export interface TaskUpdate {
   urgency?: 'low' | 'high'
   importance?: 'low' | 'high'
   difficulty?: number
-  status?: 'pending' | 'in_progress' | 'completed'
+  status?: 'undo' | 'done'
 }
 
 // Task Preview Types for two-stage creation

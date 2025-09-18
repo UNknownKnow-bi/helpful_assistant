@@ -199,6 +199,11 @@ export const tasksApi = {
     return response.data
   },
   
+  updateStatus: async (id: number, status: 'undo' | 'done'): Promise<Task> => {
+    const response = await api.patch(`/tasks/${id}/status`, { status })
+    return response.data
+  },
+  
   delete: async (id: number): Promise<void> => {
     await api.delete(`/tasks/${id}`)
   },
@@ -239,6 +244,39 @@ export const tasksApi = {
     message: string
   }> => {
     const response = await api.post(`/tasks/${id}/generate-social-advice`)
+    return response.data
+  },
+  
+  updateExecutionProcedure: async (
+    taskId: number, 
+    procedureNumber: number, 
+    updates: {
+      completed?: boolean
+      procedure_content?: string
+      key_result?: string
+    }
+  ): Promise<{
+    task_id: number
+    procedure_number: number
+    message: string
+    updated_procedure: {
+      procedure_number: number
+      procedure_content: string
+      key_result: string
+      completed?: boolean
+    }
+  }> => {
+    const response = await api.patch(`/tasks/${taskId}/execution-procedures/${procedureNumber}`, updates)
+    return response.data
+  },
+  
+  deleteExecutionProcedure: async (taskId: number, procedureNumber: number): Promise<{
+    task_id: number
+    deleted_procedure_number: number
+    remaining_procedures: number
+    message: string
+  }> => {
+    const response = await api.delete(`/tasks/${taskId}/execution-procedures/${procedureNumber}`)
     return response.data
   },
 }

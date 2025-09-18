@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database.sqlite_connection import SessionLocal
 from app.database.sqlite_models import Task as TaskModel, User
 from app.models.sqlite_models import (
     TaskCreate, TaskUpdate, TaskResponse, Task,
     TaskPreview, TaskPreviewResponse, TaskConfirmRequest,
-    UserResponse
+    UserResponse, ExecutionProcedureUpdate
 )
 from app.core.auth_sqlite import get_current_user
 from app.services.ai_service_sqlite import ai_service_sqlite
@@ -28,6 +28,50 @@ def get_db():
     finally:
         db.close()
 
+def get_deadline_category(deadline_str: str, task_status: str) -> str:
+    """
+    Categorize task deadline into 5 types:
+    - 进行中 (if undo and not reached deadline)
+    - 仅剩X天 (if undo and >24 hours but <5 days)
+    - 仅剩X小时 (if undo and <=24 hours)
+    - 完成 (if done status)
+    - 已过期 (if undo and past deadline)
+    """
+    if task_status == "done":
+        return "完成"
+    
+    if not deadline_str:
+        return "进行中"  # No deadline, assume in progress
+    
+    try:
+        # Parse deadline to datetime
+        if deadline_str.endswith('Z'):
+            deadline = datetime.fromisoformat(deadline_str[:-1]).replace(tzinfo=timezone.utc)
+        else:
+            deadline = datetime.fromisoformat(deadline_str)
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+        
+        # Get current time
+        now = datetime.now(timezone.utc)
+        
+        # Calculate time difference
+        time_diff = deadline - now
+        total_hours = time_diff.total_seconds() / 3600
+        
+        if total_hours < 0:
+            return "已过期"
+        elif total_hours <= 24:
+            hours = max(1, int(total_hours))
+            return f"仅剩{hours}小时"
+        elif total_hours <= 120:  # 5 days = 120 hours
+            days = max(1, int(total_hours / 24))
+            return f"仅剩{days}天"
+        else:
+            return "进行中"
+    except:
+        return "进行中"  # Default to in progress if parsing fails
+
 # Task Statistics (before other routes to avoid conflicts)
 @router.get("/stats")
 async def get_task_stats(
@@ -38,9 +82,8 @@ async def get_task_stats(
     tasks = db.query(TaskModel).filter(TaskModel.user_id == current_user.id).all()
     
     total = len(tasks)
-    completed = len([t for t in tasks if t.status == "completed"])
-    in_progress = len([t for t in tasks if t.status == "in_progress"])
-    pending = len([t for t in tasks if t.status == "pending"])
+    completed = len([t for t in tasks if t.status == "done"])
+    pending = len([t for t in tasks if t.status == "undo"])
     
     # Priority distribution based on Eisenhower Matrix
     urgent_important = len([t for t in tasks if t.urgency == "high" and t.importance == "high"])
@@ -54,7 +97,6 @@ async def get_task_stats(
     return {
         "total": total,
         "completed": completed,
-        "in_progress": in_progress,
         "pending": pending,
         "completion_rate": (completed / total * 100) if total > 0 else 0,
         "priority_distribution": {
@@ -182,7 +224,17 @@ async def get_tasks(
         query = query.filter(TaskModel.importance == importance)
     
     tasks = query.order_by(TaskModel.created_at.desc()).all()
-    return tasks
+    
+    # Add deadline categories to each task
+    tasks_with_categories = []
+    for task in tasks:
+        # Convert task to dict using Pydantic model
+        task_data = TaskResponse.model_validate(task, from_attributes=True).model_dump()
+        deadline_str = task.deadline.isoformat() if task.deadline else None
+        task_data['deadline_category'] = get_deadline_category(deadline_str, task.status)
+        tasks_with_categories.append(task_data)
+    
+    return tasks_with_categories
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
@@ -227,6 +279,38 @@ async def update_task(
     for field, value in update_data.items():
         setattr(task, field, value)
     
+    task.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(task)
+    return task
+
+@router.patch("/{task_id}/status", response_model=TaskResponse)
+async def update_task_status(
+    task_id: int,
+    request: Dict[str, str],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update task status (undo/done)"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    new_status = request.get("status")
+    if new_status not in ["undo", "done"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status must be 'undo' or 'done'"
+        )
+    
+    task.status = new_status
     task.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(task)
@@ -1021,4 +1105,120 @@ async def generate_task_social_advice(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate social advice: {str(e)}"
         )
+
+# Update Individual Execution Procedure
+@router.patch("/{task_id}/execution-procedures/{procedure_number}")
+async def update_execution_procedure(
+    task_id: int,
+    procedure_number: int,
+    request: ExecutionProcedureUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update individual execution procedure completion status or content"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Parse existing execution procedures
+    import json
+    execution_procedures = []
+    if task.execution_procedures:
+        try:
+            execution_procedures = json.loads(task.execution_procedures)
+        except (json.JSONDecodeError, TypeError):
+            execution_procedures = []
+    
+    # Find the procedure to update
+    procedure_found = False
+    for procedure in execution_procedures:
+        if procedure.get("procedure_number") == procedure_number:
+            procedure_found = True
+            # Update fields that are provided using Pydantic model
+            update_data = request.model_dump(exclude_unset=True)
+            for field, value in update_data.items():
+                procedure[field] = value
+            break
+    
+    if not procedure_found:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Procedure {procedure_number} not found"
+        )
+    
+    # Save updated procedures back to database
+    task.execution_procedures = json.dumps(execution_procedures)
+    task.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(task)
+    
+    return {
+        "task_id": task_id,
+        "procedure_number": procedure_number,
+        "message": "Procedure updated successfully",
+        "updated_procedure": next(p for p in execution_procedures if p.get("procedure_number") == procedure_number)
+    }
+
+# Delete Individual Execution Procedure
+@router.delete("/{task_id}/execution-procedures/{procedure_number}")
+async def delete_execution_procedure(
+    task_id: int,
+    procedure_number: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete individual execution procedure"""
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Parse existing execution procedures
+    import json
+    execution_procedures = []
+    if task.execution_procedures:
+        try:
+            execution_procedures = json.loads(task.execution_procedures)
+        except (json.JSONDecodeError, TypeError):
+            execution_procedures = []
+    
+    # Remove the procedure
+    original_length = len(execution_procedures)
+    execution_procedures = [p for p in execution_procedures if p.get("procedure_number") != procedure_number]
+    
+    if len(execution_procedures) == original_length:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Procedure {procedure_number} not found"
+        )
+    
+    # Renumber remaining procedures to maintain sequence
+    for i, procedure in enumerate(execution_procedures):
+        procedure["procedure_number"] = i + 1
+    
+    # Save updated procedures back to database
+    task.execution_procedures = json.dumps(execution_procedures) if execution_procedures else None
+    task.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(task)
+    
+    return {
+        "task_id": task_id,
+        "deleted_procedure_number": procedure_number,
+        "remaining_procedures": len(execution_procedures),
+        "message": "Procedure deleted successfully"
+    }
 

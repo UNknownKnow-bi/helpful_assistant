@@ -3,6 +3,18 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 import json
 
+# Execution Procedure Models
+class ExecutionProcedureBase(BaseModel):
+    procedure_number: int
+    procedure_content: str
+    key_result: str
+    completed: Optional[bool] = False
+
+class ExecutionProcedureUpdate(BaseModel):
+    procedure_content: Optional[str] = None
+    key_result: Optional[str] = None
+    completed: Optional[bool] = None
+
 # User Models
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
@@ -91,7 +103,7 @@ class Task(TaskBase):
     id: int
     user_id: int
     source: str = "manual"  # "manual", "extension"
-    status: str = "pending"  # "pending", "in_progress", "completed"
+    status: str = "undo"  # "undo", "done"
     execution_procedures: Optional[List[Dict[str, Any]]] = None  # Task execution guidance from AI
     social_advice: Optional[List[Dict[str, Any]]] = None  # Social intelligence advice from AI
     created_at: datetime
@@ -127,6 +139,7 @@ class TaskResponse(TaskBase):
     id: int
     source: str
     status: str
+    deadline_category: Optional[str] = None  # 进行中|仅剩X天|仅剩X小时|完成|已过期
     execution_procedures: Optional[List[Dict[str, Any]]] = None  # Task execution guidance from AI
     social_advice: Optional[List[Dict[str, Any]]] = None  # Social intelligence advice from AI
     created_at: datetime

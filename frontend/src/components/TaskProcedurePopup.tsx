@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { tasksApi } from '@/services/api'
 import type { Task, ExecutionProcedure, SocialAdvice } from '@/types'
+import { Edit3, Trash2, Save, X, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface TaskProcedurePopupProps {
   task: Task
@@ -20,7 +21,10 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
   const [socialAdvice, setSocialAdvice] = useState<SocialAdvice[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [activeTab, setActiveTab] = useState<'procedures' | 'social'>('procedures')
+  const [editingProcedure, setEditingProcedure] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [editKeyResult, setEditKeyResult] = useState('')
+  const [foldedProcedures, setFoldedProcedures] = useState<Set<number>>(new Set())
 
   // Fetch execution procedures when popup opens
   useEffect(() => {
@@ -61,7 +65,6 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
     try {
       const data = await tasksApi.generateSocialAdvice(task.id)
       setSocialAdvice(data.social_advice || [])
-      setActiveTab('social')
     } catch (error: any) {
       console.error('Failed to generate social advice:', error)
       const errorMessage = error?.response?.data?.detail || '生成社会化建议失败，请稍后重试'
@@ -69,6 +72,96 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
     } finally {
       setGenerating(false)
     }
+  }
+
+  // Handle procedure completion toggle
+  const handleCompletionToggle = async (procedureNumber: number, currentCompleted: boolean) => {
+    try {
+      await tasksApi.updateExecutionProcedure(task.id, procedureNumber, {
+        completed: !currentCompleted
+      })
+      
+      // Update local state
+      setProcedures(prev => prev.map(p => 
+        p.procedure_number === procedureNumber 
+          ? { ...p, completed: !currentCompleted }
+          : p
+      ))
+      
+      // Auto-fold when marked as completed
+      if (!currentCompleted) {
+        setFoldedProcedures(prev => new Set(prev).add(procedureNumber))
+      }
+    } catch (error) {
+      console.error('Failed to update procedure completion:', error)
+      alert('更新完成状态失败')
+    }
+  }
+
+  // Start editing a procedure
+  const startEditing = (procedure: ExecutionProcedure) => {
+    setEditingProcedure(procedure.procedure_number)
+    setEditContent(procedure.procedure_content)
+    setEditKeyResult(procedure.key_result)
+  }
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingProcedure(null)
+    setEditContent('')
+    setEditKeyResult('')
+  }
+
+  // Save edited procedure
+  const saveEditing = async () => {
+    if (!editingProcedure) return
+
+    try {
+      await tasksApi.updateExecutionProcedure(task.id, editingProcedure, {
+        procedure_content: editContent,
+        key_result: editKeyResult
+      })
+      
+      // Update local state
+      setProcedures(prev => prev.map(p => 
+        p.procedure_number === editingProcedure 
+          ? { ...p, procedure_content: editContent, key_result: editKeyResult }
+          : p
+      ))
+      
+      cancelEditing()
+    } catch (error) {
+      console.error('Failed to update procedure:', error)
+      alert('保存失败')
+    }
+  }
+
+  // Delete a procedure
+  const deleteProcedure = async (procedureNumber: number) => {
+    if (!confirm('确定要删除这个步骤吗？')) return
+
+    try {
+      await tasksApi.deleteExecutionProcedure(task.id, procedureNumber)
+      
+      // Refresh procedures to get updated numbering
+      await fetchProcedures()
+    } catch (error) {
+      console.error('Failed to delete procedure:', error)
+      alert('删除失败')
+    }
+  }
+
+  // Toggle fold/expand for a procedure
+  const toggleFold = (procedureNumber: number) => {
+    setFoldedProcedures(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(procedureNumber)) {
+        newSet.delete(procedureNumber)
+      } else {
+        newSet.add(procedureNumber)
+      }
+      return newSet
+    })
   }
 
   if (!isOpen) return null
@@ -97,119 +190,165 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
             </Button>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="flex gap-4 mt-4">
-            <button
-              onClick={() => setActiveTab('procedures')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'procedures'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }`}
-            >
-              执行步骤 ({procedures.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('social')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'social'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }`}
-            >
-              社会化建议 ({socialAdvice.length})
-            </button>
-          </div>
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {activeTab === 'procedures' && (
-            <div>
-              {loading ? (
-                <div className="text-center py-8 text-gray-500">
-                  加载执行步骤中...
+          {/* Generate/Regenerate Social Advice Button */}
+          {procedures.length > 0 && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900">完整任务指导</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    包含执行步骤、关键结果和社会化建议的完整指导方案
+                  </p>
                 </div>
-              ) : procedures.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  暂无执行步骤
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {procedures.map((procedure) => (
-                    <Card key={procedure.procedure_number} className="border-l-4 border-l-blue-500">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg font-medium text-blue-700">
-                          步骤 {procedure.procedure_number}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-1">执行内容:</h4>
-                            <p className="text-gray-700 leading-relaxed">
-                              {procedure.procedure_content}
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-1">关键结果:</h4>
-                            <p className="text-gray-700 leading-relaxed">
-                              {procedure.key_result}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                <Button 
+                  onClick={generateSocialAdvice}
+                  disabled={generating}
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 ml-4"
+                >
+                  {generating ? '生成中...' : socialAdvice.length > 0 ? '重新生成社会化建议' : '生成社会化建议'}
+                </Button>
+              </div>
             </div>
           )}
 
-          {activeTab === 'social' && (
-            <div>
-              {/* Generate Button */}
-              {socialAdvice.length === 0 && procedures.length > 0 && (
-                <div className="text-center py-6">
-                  <Button 
-                    onClick={generateSocialAdvice}
-                    disabled={generating}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    {generating ? '生成中...' : '生成社会化建议'}
-                  </Button>
-                  <p className="text-sm text-gray-500 mt-2">
-                    基于执行步骤和同事性格分析生成社交沟通建议
-                  </p>
-                </div>
-              )}
-
-              {socialAdvice.length === 0 && procedures.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  需要先有执行步骤才能生成社会化建议
-                </div>
-              )}
-
-              {socialAdvice.length > 0 && (
-                <div className="space-y-4">
-                  {socialAdvice.map((advice) => (
-                    <Card key={advice.procedure_number} className="border-l-4 border-l-purple-500">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg font-medium text-purple-700">
-                          步骤 {advice.procedure_number}
-                        </CardTitle>
-                      </CardHeader>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">
+              加载完整指导中...
+            </div>
+          ) : procedures.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              暂无执行指导
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {procedures.map((procedure) => {
+                // Find corresponding social advice for this procedure
+                const correspondingSocialAdvice = socialAdvice.find(
+                  advice => advice.procedure_number === procedure.procedure_number
+                )
+                
+                const isEditing = editingProcedure === procedure.procedure_number
+                const isCompleted = procedure.completed || false
+                const isFolded = foldedProcedures.has(procedure.procedure_number)
+                
+                return (
+                  <Card key={procedure.procedure_number} className={`border-l-4 ${isCompleted ? 'border-l-green-500 bg-green-50' : 'border-l-blue-500'} transition-colors`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          {/* Completion Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={isCompleted}
+                            onChange={() => handleCompletionToggle(procedure.procedure_number, isCompleted)}
+                            className="w-5 h-5 text-green-600 bg-white border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+                          />
+                          <CardTitle className={`text-lg font-medium ${isCompleted ? 'text-green-700 line-through' : 'text-blue-700'}`}>
+                            步骤 {procedure.procedure_number}
+                          </CardTitle>
+                          {isCompleted && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">已完成</span>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex items-center space-x-2">
+                          {/* Fold/Expand Button */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleFold(procedure.procedure_number)}
+                            className="text-gray-600 hover:text-gray-700"
+                            title={isFolded ? '展开' : '收起'}
+                          >
+                            {isFolded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                          </Button>
+                          
+                          {isEditing ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={saveEditing}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                <Save className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEditing}
+                                className="text-gray-600 hover:text-gray-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEditing(procedure)}
+                                className="text-blue-600 hover:text-blue-700"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => deleteProcedure(procedure.procedure_number)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    {!isFolded && (
                       <CardContent>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           <div>
-                            <h4 className="font-medium text-gray-900 mb-1">执行内容:</h4>
-                            <p className="text-gray-700 leading-relaxed">
-                              {advice.procedure_content}
-                            </p>
+                            <h4 className="font-medium text-gray-900 mb-2">执行内容:</h4>
+                            {isEditing ? (
+                              <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                rows={3}
+                              />
+                            ) : (
+                              <p className={`text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-md ${isCompleted ? 'opacity-70' : ''}`}>
+                                {procedure.procedure_content}
+                              </p>
+                            )}
                           </div>
-                          {advice.social_advice && advice.social_advice !== 'null' && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">关键结果:</h4>
+                            {isEditing ? (
+                              <textarea
+                                value={editKeyResult}
+                                onChange={(e) => setEditKeyResult(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                rows={2}
+                              />
+                            ) : (
+                              <p className={`text-gray-700 leading-relaxed bg-blue-50 p-3 rounded-md ${isCompleted ? 'opacity-70' : ''}`}>
+                                {procedure.key_result}
+                              </p>
+                            )}
+                          </div>
+                          {correspondingSocialAdvice && correspondingSocialAdvice.social_advice && correspondingSocialAdvice.social_advice !== 'null' ? (
                             <div>
-                              <h4 className="font-medium text-purple-700 mb-1">💡 社会化建议:</h4>
+                              <h4 className="font-medium text-purple-700 mb-2">社会化建议:</h4>
                               <div className="bg-purple-50 p-3 rounded-md">
                                 <div className="text-gray-800 leading-relaxed markdown-content">
                                   <ReactMarkdown 
@@ -226,23 +365,27 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
                                       code: ({children}) => <code className="bg-purple-100 px-1 py-0.5 rounded text-xs text-purple-900">{children}</code>
                                     }}
                                   >
-                                    {advice.social_advice}
+                                    {correspondingSocialAdvice.social_advice}
                                   </ReactMarkdown>
                                 </div>
                               </div>
                             </div>
-                          )}
-                          {(!advice.social_advice || advice.social_advice === 'null') && (
-                            <div className="text-sm text-gray-500 italic">
-                              此步骤无特殊社交建议
+                          ) : (
+                            <div>
+                              <h4 className="font-medium text-gray-500 mb-2">社会化建议:</h4>
+                              <div className="bg-gray-100 p-3 rounded-md">
+                                <p className="text-sm text-gray-500 italic">
+                                  {socialAdvice.length === 0 ? '点击上方按钮生成社会化建议' : '此步骤无特殊社交建议'}
+                                </p>
+                              </div>
                             </div>
                           )}
                         </div>
                       </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                    )}
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>

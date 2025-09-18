@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **✨ interactive procedure management with completion tracking and inline editing**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
 
 ## Base URL
 ```
@@ -53,9 +53,12 @@ Authorization: Bearer <your_jwt_token>
 - `GET /api/tasks/stats` - Get task statistics
 - `GET /api/tasks/{task_id}` - Get specific task
 - `PUT /api/tasks/{task_id}` - Update task
+- **🆕 `PATCH /api/tasks/{task_id}/status`** - Update task status (undo/done) with real-time deadline calculation
 - `DELETE /api/tasks/{task_id}` - Delete task
 - `GET /api/tasks/{task_id}/execution-procedures` - Get task execution procedures
 - `POST /api/tasks/{task_id}/regenerate-execution-procedures` - Regenerate execution procedures
+- **🆕 `PATCH /api/tasks/{task_id}/execution-procedures/{procedure_number}`** - Update individual procedure (content, completion status)
+- **🆕 `DELETE /api/tasks/{task_id}/execution-procedures/{procedure_number}`** - Delete individual procedure with auto-renumbering
 - **🆕 `GET /api/tasks/{task_id}/social-advice`** - Get AI-powered social intelligence advice
 - **🆕 `POST /api/tasks/{task_id}/generate-social-advice`** - Generate social intelligence advice
 
@@ -311,17 +314,20 @@ Create a new task manually with automatic execution procedure and social intelli
   "importance": "high",
   "difficulty": 7,
   "source": "manual",
-  "status": "pending",
+  "status": "undo",
+  "deadline_category": "仅剩2天",
   "execution_procedures": [
     {
       "procedure_number": 1,
       "procedure_content": "收集和整理用户调研数据，分析用户需求和痛点",
-      "key_result": "完成用户调研数据分析报告"
+      "key_result": "完成用户调研数据分析报告",
+      "completed": false
     },
     {
       "procedure_number": 2,
       "procedure_content": "进行竞品分析，识别市场空白和机会点",
-      "key_result": "完成竞品对比分析报告"
+      "key_result": "完成竞品对比分析报告",
+      "completed": false
     }
   ],
   "created_at": "2025-01-01T00:00:00Z",
@@ -360,7 +366,7 @@ Generate structured task cards from text input using AI with automatic execution
       "importance": "high",
       "difficulty": 7,
       "source": "ai_generated",
-      "status": "pending",
+      "status": "undo",
       "created_at": "2025-01-01T00:00:00Z",
       "updated_at": "2025-01-01T00:00:00Z"
     }
@@ -475,7 +481,8 @@ Confirm and save preview tasks to database with automatic execution procedure an
     "importance": "high",
     "difficulty": 7,
     "source": "ai_generated",
-    "status": "pending",
+    "status": "undo",
+    "deadline_category": "进行中",
     "execution_procedures": null,
     "social_advice": null,
     "created_at": "2025-09-05T08:30:00Z",
@@ -492,7 +499,8 @@ Confirm and save preview tasks to database with automatic execution procedure an
     "importance": "high",
     "difficulty": 4,
     "source": "ai_generated",
-    "status": "pending",
+    "status": "undo",
+    "deadline_category": "进行中",
     "execution_procedures": null,
     "social_advice": null,
     "created_at": "2025-09-05T08:30:00Z",
@@ -579,7 +587,7 @@ Direct image-to-task generation with automatic execution procedures.
         }
       ],
       "source": "ai_generated",
-      "status": "pending"
+      "status": "undo"
     }
   ]
 }
@@ -642,7 +650,7 @@ List tasks with filtering and pagination.
       "urgency": "high",
       "importance": "high",
       "difficulty": 7,
-      "status": "pending"
+      "status": "undo"
     }
   ],
   "total": 1,
@@ -692,12 +700,14 @@ Retrieve execution procedures for a specific task.
     {
       "procedure_number": 1,
       "procedure_content": "分析上次数据回刷导致数据缺失的根本原因，确定缺失数据的时间范围和具体字段",
-      "key_result": "完成数据缺失分析报告，明确缺失数据的时间段和受影响字段"
+      "key_result": "完成数据缺失分析报告，明确缺失数据的时间段和受影响字段",
+      "completed": true
     },
     {
       "procedure_number": 2,
       "procedure_content": "检查当前mid表的生命周期设置，确认需要修改的具体参数和配置",
-      "key_result": "获取当前mid表生命周期配置文档，识别需要调整的参数"
+      "key_result": "获取当前mid表生命周期配置文档，识别需要调整的参数",
+      "completed": false
     },
     {
       "procedure_number": 3,
@@ -747,6 +757,83 @@ Manually regenerate execution procedures for a specific task.
 - **Structured Output**: Each procedure includes number, content, and key result
 - **Background Processing**: Procedures generated asynchronously after task creation
 - **Fallback Handling**: Graceful degradation when AI provider unavailable
+
+#### 🆕 PATCH /api/tasks/{task_id}/execution-procedures/{procedure_number}
+Update individual execution procedure content, completion status, or key results with real-time persistence.
+
+**🎯 Interactive Procedure Management**: This endpoint enables users to edit procedure content, mark steps as complete with checkboxes, and update key results directly in the UI with immediate database synchronization.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+- `procedure_number` (integer): The number of the procedure to update (1, 2, 3, etc.)
+
+**Request Body:**
+```json
+{
+  "procedure_content": "Updated procedure content with new details",
+  "key_result": "Updated key result description",
+  "completed": true
+}
+```
+
+**Field Descriptions:**
+- `procedure_content` (optional): Updated text content for the procedure step
+- `key_result` (optional): Updated description of the expected key result
+- `completed` (optional): Boolean flag to mark procedure as complete/incomplete
+
+**Response:**
+```json
+{
+  "task_id": 14,
+  "procedure_number": 2,
+  "message": "Procedure updated successfully",
+  "updated_procedure": {
+    "procedure_number": 2,
+    "procedure_content": "Updated procedure content with new details",
+    "key_result": "Updated key result description",
+    "completed": true
+  }
+}
+```
+
+**✨ Features:**
+- **Partial Updates**: Only fields provided in request are updated
+- **Real-time Persistence**: Changes immediately saved to database
+- **UI Integration**: Designed for inline editing and checkbox completion tracking
+- **Optimistic Updates**: Frontend can update UI immediately while API call processes
+
+#### 🆕 DELETE /api/tasks/{task_id}/execution-procedures/{procedure_number}
+Delete individual execution procedure with automatic renumbering of remaining procedures.
+
+**🗑️ Smart Deletion**: This endpoint removes a specific procedure step and automatically renumbers all remaining procedures to maintain sequential order (1, 2, 3, etc.).
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+- `procedure_number` (integer): The number of the procedure to delete
+
+**Response:**
+```json
+{
+  "task_id": 14,
+  "deleted_procedure_number": 2,
+  "remaining_procedures": 3,
+  "message": "Procedure deleted successfully"
+}
+```
+
+**🔄 Auto-Renumbering Logic:**
+- Procedures are automatically renumbered after deletion
+- If procedure 2 is deleted from [1, 2, 3, 4], remaining procedures become [1, 2, 3]
+- Maintains sequential numbering for consistent UI display
+- Social advice linkages are preserved through renumbering
+
+**Error Responses:**
+```json
+{
+  "status_code": 404,
+  "detail": "Procedure 5 not found"
+}
+```
 
 ---
 
@@ -985,6 +1072,62 @@ Unauthorized access (401):
 - Changes to urgency/importance trigger automatic quadrant repositioning in the UI
 - All updates are immediately reflected in the Eisenhower Matrix dashboard
 
+#### 🆕 PATCH /api/tasks/{task_id}/status
+
+Update task status with real-time deadline calculation and timer functionality.
+
+**🆕 Timer System Features:**
+- **Two-State Status**: Simple "undo" ↔ "done" toggle for task management
+- **Real-Time Deadline Categories**: Automatic categorization based on deadline proximity
+- **Color-Coded Visual Feedback**: Dynamic UI updates with countdown tags
+- **Timezone-Aware Calculations**: Accurate time remaining calculations
+
+**Request Body:**
+```json
+{
+  "status": "done"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 13,
+  "title": "产品需求分析报告",
+  "content": "完成一个新的产品需求分析报告，需要在本周五之前提交给产品经理张三",
+  "deadline": "2025-01-05T17:00:00Z",
+  "assignee": "产品经理张三",
+  "participant": "你",
+  "urgency": "high",
+  "importance": "high",
+  "difficulty": 7,
+  "source": "manual",
+  "status": "done",
+  "deadline_category": "完成",
+  "execution_procedures": [...],
+  "social_advice": [...],
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T10:30:00Z"
+}
+```
+
+**🆕 Deadline Categories:**
+- **进行中** - Tasks without deadlines or >5 days remaining
+- **仅剩X天** - Tasks with 1-5 days remaining (e.g., "仅剩3天")
+- **仅剩X小时** - Tasks with ≤24 hours remaining (e.g., "仅剩8小时")
+- **已过期** - Overdue tasks with "undo" status
+- **完成** - Tasks marked as "done"
+
+**Status Values:**
+- `"undo"` - Task is pending/in progress
+- `"done"` - Task is completed
+
+**Real-Time Features:**
+- Frontend automatically updates countdown every minute
+- Deadline categories change dynamically as time passes
+- Color-coded tags provide instant visual feedback
+- Status changes immediately reflect in Eisenhower Matrix quadrants
+
 ### Chat APIs
 
 #### WebSocket /api/chat/ws/{session_id}
@@ -1204,23 +1347,32 @@ Delete work relationship.
 ```
 
 **🆕 Enhanced Task Model with Execution Procedures:**
-The `execution_procedures` field contains an array of structured execution steps:
+The `execution_procedures` field contains an array of structured execution steps with **✨ interactive completion tracking**:
 ```json
 {
   "execution_procedures": [
     {
       "procedure_number": 1,
       "procedure_content": "分析任务需求和目标",
-      "key_result": "完成任务分析报告"
+      "key_result": "完成任务分析报告",
+      "completed": false
     },
     {
       "procedure_number": 2,
       "procedure_content": "制定详细的执行计划",
-      "key_result": "完成执行计划文档"
+      "key_result": "完成执行计划文档", 
+      "completed": true
     }
   ]
 }
 ```
+
+**✨ Interactive Features:**
+- **`completed`** (boolean): Tracks completion status for each procedure step
+- **Inline Editing**: `procedure_content` and `key_result` can be updated via PATCH endpoint
+- **Real-time Updates**: Changes persist immediately to database
+- **Auto-folding**: Completed procedures can be folded in UI for better focus
+- **Sequential Numbering**: Maintained automatically even after deletions
 
 ### 🆕 Task Preview Models
 
