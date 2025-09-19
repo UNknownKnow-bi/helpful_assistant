@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **🆕 AI-powered time estimation with user expertise integration**, **✨ interactive procedure management with completion tracking and inline editing**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **🆕 AI-powered time estimation with user expertise integration**, **✨ interactive procedure management with completion tracking and inline editing**, **📅 AI-powered calendar & task scheduling system**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
 
 ## Base URL
 ```
@@ -82,6 +82,13 @@ Authorization: Bearer <your_jwt_token>
 - `POST /api/profile/relationships` - Create work relationship
 - `PUT /api/profile/relationships/{id}` - Update work relationship
 - `DELETE /api/profile/relationships/{id}` - Delete work relationship
+
+### 📅 Calendar & Task Scheduling APIs
+- `POST /api/calendar/schedule-tasks` - AI-powered intelligent task scheduling
+- `GET /api/calendar/events` - Get calendar events within date range
+- `PUT /api/calendar/events/{event_id}` - Update calendar event
+- `DELETE /api/calendar/events/{event_id}` - Delete calendar event
+- `DELETE /api/calendar/events` - Clear calendar events within date range
 
 ---
 
@@ -1622,6 +1629,137 @@ The complete OpenAPI 3.0 specification is available at:
 4. **Configure AI providers through the API or frontend interface**
 
 5. **Start using the task generation and chat features**
+
+---
+
+## Calendar & Task Scheduling APIs
+
+### POST /api/calendar/schedule-tasks
+**AI-Powered Intelligent Task Scheduling**
+
+Automatically schedules all undone tasks using AI-powered analysis of task properties, deadlines, priorities, and user context.
+
+**Request Body:**
+```json
+{
+  "date_range_start": "2024-01-15T00:00:00Z",
+  "date_range_end": "2024-01-22T00:00:00Z",
+  "work_hours_start": "09:00",
+  "work_hours_end": "18:00",
+  "break_duration_minutes": 15,
+  "include_weekends": false
+}
+```
+
+**Response:**
+```json
+{
+  "events": [
+    {
+      "id": 1,
+      "task_id": 123,
+      "scheduled_start_time": "2024-01-15T09:00:00Z",
+      "scheduled_end_time": "2024-01-15T11:00:00Z",
+      "event_type": "work",
+      "ai_reasoning": "高优先级任务，安排在上午精力充沛时段",
+      "created_at": "2024-01-15T08:00:00Z",
+      "updated_at": "2024-01-15T08:00:00Z",
+      "task": {
+        "id": 123,
+        "title": "项目方案设计",
+        "content": "完成新产品功能设计方案",
+        "urgency": "high",
+        "importance": "high",
+        "difficulty": 7,
+        "cost_time_hours": 2.0
+      }
+    }
+  ],
+  "ai_reasoning": "AI智能分析了 5 个待办任务，根据截止时间、重要性、紧急度和难度等因素进行合理安排",
+  "message": "成功为 5 个任务生成智能时间安排"
+}
+```
+
+### GET /api/calendar/events
+**Get Calendar Events**
+
+Retrieve calendar events within a specified date range.
+
+**Query Parameters:**
+- `start_date` (optional): ISO datetime string for range start
+- `end_date` (optional): ISO datetime string for range end
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "task_id": 123,
+    "scheduled_start_time": "2024-01-15T09:00:00Z",
+    "scheduled_end_time": "2024-01-15T11:00:00Z",
+    "event_type": "work",
+    "ai_reasoning": "高优先级任务，安排在上午精力充沛时段",
+    "created_at": "2024-01-15T08:00:00Z",
+    "updated_at": "2024-01-15T08:00:00Z",
+    "task": {
+      "id": 123,
+      "title": "项目方案设计",
+      "urgency": "high",
+      "importance": "high"
+    }
+  }
+]
+```
+
+### PUT /api/calendar/events/{event_id}
+**Update Calendar Event**
+
+Update scheduling details for a calendar event.
+
+**Request Body:**
+```json
+{
+  "scheduled_start_time": "2024-01-15T10:00:00Z",
+  "scheduled_end_time": "2024-01-15T12:00:00Z",
+  "event_type": "work",
+  "ai_reasoning": "用户手动调整时间安排"
+}
+```
+
+### DELETE /api/calendar/events/{event_id}
+**Delete Calendar Event**
+
+Remove a specific calendar event.
+
+**Response:**
+```json
+{
+  "message": "日程事件已删除"
+}
+```
+
+### DELETE /api/calendar/events
+**Clear Calendar Events**
+
+Remove multiple calendar events within a date range.
+
+**Query Parameters:**
+- `start_date` (optional): ISO datetime string for range start
+- `end_date` (optional): ISO datetime string for range end
+
+**Response:**
+```json
+{
+  "message": "已清除 3 个日程事件"
+}
+```
+
+**AI Scheduling Features:**
+- **Multi-Factor Analysis**: Considers urgency, importance, difficulty, estimated time, and deadlines
+- **User Context Integration**: Leverages user profile and work relationships for personalized scheduling  
+- **Energy Management**: Schedules high-concentration tasks during optimal time periods
+- **Time Buffer Management**: Automatic break time allocation between tasks
+- **Fallback Mechanism**: Deadline-priority based scheduling when AI is unavailable
 
 ---
 

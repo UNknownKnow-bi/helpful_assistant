@@ -1169,6 +1169,68 @@
         }
       }
     },
+    "/api/tasks/{task_id}/status": {
+      "patch": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Update Task Status",
+        "description": "Update task status (undo/done)",
+        "operationId": "update_task_status_api_tasks__task_id__status_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tasks/{task_id}/execution-procedures": {
       "get": {
         "tags": [
@@ -1606,6 +1668,124 @@
         }
       }
     },
+    "/api/tasks/{task_id}/execution-procedures/{procedure_number}": {
+      "patch": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Update Execution Procedure",
+        "description": "Update individual execution procedure completion status or content",
+        "operationId": "update_execution_procedure_api_tasks__task_id__execution_procedures__procedure_number__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "procedure_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Procedure Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionProcedureUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Delete Execution Procedure",
+        "description": "Delete individual execution procedure",
+        "operationId": "delete_execution_procedure_api_tasks__task_id__execution_procedures__procedure_number__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "procedure_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Procedure Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/profile/": {
       "get": {
         "tags": [
@@ -1963,6 +2143,301 @@
         }
       }
     },
+    "/api/calendar/schedule-tasks": {
+      "post": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Schedule Tasks With Ai",
+        "description": "Use AI to intelligently schedule undone tasks based on their properties",
+        "operationId": "schedule_tasks_with_ai_api_calendar_schedule_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskScheduleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/calendar/events": {
+      "get": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Get Calendar Events",
+        "description": "Get calendar events for a user within a date range",
+        "operationId": "get_calendar_events_api_calendar_events_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarEventResponse"
+                  },
+                  "title": "Response Get Calendar Events Api Calendar Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Clear Calendar Events",
+        "description": "Clear calendar events within a date range (or all if no dates specified)",
+        "operationId": "clear_calendar_events_api_calendar_events_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar/events/{event_id}": {
+      "put": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Update Calendar Event",
+        "description": "Update a calendar event",
+        "operationId": "update_calendar_event_api_calendar_events__event_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarEventUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "calendar"
+        ],
+        "summary": "Delete Calendar Event",
+        "description": "Delete a calendar event",
+        "operationId": "delete_calendar_event_api_calendar_events__event_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -2174,6 +2649,126 @@
         ],
         "title": "Body_generate_task_from_image_api_tasks_generate_from_image_post"
       },
+      "CalendarEventResponse": {
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "title": "Task Id"
+          },
+          "scheduled_start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled Start Time"
+          },
+          "scheduled_end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scheduled End Time"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type",
+            "default": "work"
+          },
+          "ai_reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Reasoning"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "scheduled_start_time",
+          "scheduled_end_time",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CalendarEventResponse"
+      },
+      "CalendarEventUpdate": {
+        "properties": {
+          "scheduled_start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled Start Time"
+          },
+          "scheduled_end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled End Time"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "ai_reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Reasoning"
+          }
+        },
+        "type": "object",
+        "title": "CalendarEventUpdate"
+      },
       "ChatMessageResponse": {
         "properties": {
           "id": {
@@ -2304,6 +2899,45 @@
         ],
         "title": "ChatSessionResponse"
       },
+      "ExecutionProcedureUpdate": {
+        "properties": {
+          "procedure_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure Content"
+          },
+          "key_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Result"
+          },
+          "completed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed"
+          }
+        },
+        "type": "object",
+        "title": "ExecutionProcedureUpdate"
+      },
       "GenerateTitleRequest": {
         "properties": {
           "first_message": {
@@ -2405,6 +3039,12 @@
             "minimum": 1.0,
             "title": "Difficulty",
             "default": 5
+          },
+          "cost_time_hours": {
+            "type": "number",
+            "minimum": 0.1,
+            "title": "Cost Time Hours",
+            "default": 2.0
           }
         },
         "type": "object",
@@ -2472,6 +3112,12 @@
             "minimum": 1.0,
             "title": "Difficulty",
             "default": 5
+          },
+          "cost_time_hours": {
+            "type": "number",
+            "minimum": 0.1,
+            "title": "Cost Time Hours",
+            "default": 2.0
           }
         },
         "type": "object",
@@ -2563,6 +3209,12 @@
             "title": "Difficulty",
             "default": 5
           },
+          "cost_time_hours": {
+            "type": "number",
+            "minimum": 0.1,
+            "title": "Cost Time Hours",
+            "default": 2.0
+          },
           "id": {
             "type": "integer",
             "title": "Id"
@@ -2574,6 +3226,17 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "deadline_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline Category"
           },
           "execution_procedures": {
             "anyOf": [
@@ -2627,6 +3290,81 @@
           "updated_at"
         ],
         "title": "TaskResponse"
+      },
+      "TaskScheduleRequest": {
+        "properties": {
+          "date_range_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date Range Start",
+            "description": "Start date for scheduling (e.g., today)"
+          },
+          "date_range_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date Range End",
+            "description": "End date for scheduling (e.g., one week from today)"
+          },
+          "work_hours_start": {
+            "type": "string",
+            "title": "Work Hours Start",
+            "description": "Daily work start time (HH:MM format)",
+            "default": "09:00"
+          },
+          "work_hours_end": {
+            "type": "string",
+            "title": "Work Hours End",
+            "description": "Daily work end time (HH:MM format)",
+            "default": "18:00"
+          },
+          "break_duration_minutes": {
+            "type": "integer",
+            "title": "Break Duration Minutes",
+            "description": "Break time between tasks in minutes",
+            "default": 15
+          },
+          "include_weekends": {
+            "type": "boolean",
+            "title": "Include Weekends",
+            "description": "Whether to schedule tasks on weekends",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "date_range_start",
+          "date_range_end"
+        ],
+        "title": "TaskScheduleRequest",
+        "description": "Request to schedule undone tasks using AI"
+      },
+      "TaskScheduleResponse": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarEventResponse"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "ai_reasoning": {
+            "type": "string",
+            "title": "Ai Reasoning",
+            "description": "AI explanation for the scheduling decisions"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "任务时间安排已生成"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "ai_reasoning"
+        ],
+        "title": "TaskScheduleResponse",
+        "description": "Response containing scheduled tasks with AI reasoning"
       },
       "TaskUpdate": {
         "properties": {
@@ -2724,6 +3462,18 @@
               }
             ],
             "title": "Difficulty"
+          },
+          "cost_time_hours": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Time Hours"
           },
           "status": {
             "anyOf": [
@@ -3920,6 +4670,10 @@
     {
       "name": "OCR",
       "description": "Image text extraction using EasyOCR and AI vision models"
+    },
+    {
+      "name": "calendar",
+      "description": "AI-powered calendar and task scheduling system"
     }
   ]
 }

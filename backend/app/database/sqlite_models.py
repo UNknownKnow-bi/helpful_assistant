@@ -150,3 +150,20 @@ class WorkRelationship(Base):
 
     # Relationships
     user_profile = relationship("UserProfile", back_populates="work_relationships")
+
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    scheduled_start_time = Column(DateTime, nullable=False)  # When to start the task
+    scheduled_end_time = Column(DateTime, nullable=False)    # When to end the task
+    event_type = Column(String(20), default="work")  # "work", "break", "meeting"
+    ai_reasoning = Column(Text, nullable=True)  # AI explanation for the scheduling decision
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User")
+    task = relationship("Task")

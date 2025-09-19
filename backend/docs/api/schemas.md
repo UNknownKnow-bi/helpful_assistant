@@ -33,6 +33,25 @@ Generated from OpenAPI specification
 **Properties:**
 - `file` (string) (required): 
 
+## CalendarEventResponse
+**Properties:**
+- `task_id` (integer) (required): 
+- `scheduled_start_time` (string) (required): 
+- `scheduled_end_time` (string) (required): 
+- `event_type` (string) (optional): 
+- `ai_reasoning` (unknown) (optional): 
+- `id` (integer) (required): 
+- `created_at` (string) (required): 
+- `updated_at` (string) (required): 
+- `task` (unknown) (optional): 
+
+## CalendarEventUpdate
+**Properties:**
+- `scheduled_start_time` (unknown) (optional): 
+- `scheduled_end_time` (unknown) (optional): 
+- `event_type` (unknown) (optional): 
+- `ai_reasoning` (unknown) (optional): 
+
 ## ChatMessageResponse
 **Properties:**
 - `id` (integer) (required): 
@@ -59,6 +78,12 @@ Generated from OpenAPI specification
 - `updated_at` (string) (required): 
 - `message_count` (integer) (required): 
 
+## ExecutionProcedureUpdate
+**Properties:**
+- `procedure_content` (unknown) (optional): 
+- `key_result` (unknown) (optional): 
+- `completed` (unknown) (optional): 
+
 ## GenerateTitleRequest
 **Properties:**
 - `first_message` (string) (required): 
@@ -82,6 +107,7 @@ Request to confirm and save preview tasks
 - `urgency` (string) (optional): 
 - `importance` (string) (optional): 
 - `difficulty` (integer) (optional): 
+- `cost_time_hours` (number) (optional): 
 
 ## TaskPreview
 Task preview data returned by AI generation without database storage
@@ -94,6 +120,7 @@ Task preview data returned by AI generation without database storage
 - `urgency` (string) (optional): 
 - `importance` (string) (optional): 
 - `difficulty` (integer) (optional): 
+- `cost_time_hours` (number) (optional): 
 
 ## TaskPreviewResponse
 Response containing preview tasks that haven't been saved yet
@@ -111,13 +138,32 @@ Response containing preview tasks that haven't been saved yet
 - `urgency` (string) (optional): 
 - `importance` (string) (optional): 
 - `difficulty` (integer) (optional): 
+- `cost_time_hours` (number) (optional): 
 - `id` (integer) (required): 
 - `source` (string) (required): 
 - `status` (string) (required): 
+- `deadline_category` (unknown) (optional): 
 - `execution_procedures` (unknown) (optional): 
 - `social_advice` (unknown) (optional): 
 - `created_at` (string) (required): 
 - `updated_at` (string) (required): 
+
+## TaskScheduleRequest
+Request to schedule undone tasks using AI
+**Properties:**
+- `date_range_start` (string) (required): Start date for scheduling (e.g., today)
+- `date_range_end` (string) (required): End date for scheduling (e.g., one week from today)
+- `work_hours_start` (string) (optional): Daily work start time (HH:MM format)
+- `work_hours_end` (string) (optional): Daily work end time (HH:MM format)
+- `break_duration_minutes` (integer) (optional): Break time between tasks in minutes
+- `include_weekends` (boolean) (optional): Whether to schedule tasks on weekends
+
+## TaskScheduleResponse
+Response containing scheduled tasks with AI reasoning
+**Properties:**
+- `events` (array of unknown) (required): 
+- `ai_reasoning` (string) (required): AI explanation for the scheduling decisions
+- `message` (string) (optional): 
 
 ## TaskUpdate
 **Properties:**
@@ -129,6 +175,7 @@ Response containing preview tasks that haven't been saved yet
 - `urgency` (unknown) (optional): 
 - `importance` (unknown) (optional): 
 - `difficulty` (unknown) (optional): 
+- `cost_time_hours` (unknown) (optional): 
 - `status` (unknown) (optional): 
 
 ## UserCreate

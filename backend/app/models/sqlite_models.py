@@ -323,3 +323,50 @@ class UserProfileResponse(UserProfileBase):
     updated_at: datetime
     work_relationships: List[WorkRelationshipResponse] = Field(default_factory=list)
 
+# Calendar Event Models
+class CalendarEventBase(BaseModel):
+    task_id: int
+    scheduled_start_time: datetime
+    scheduled_end_time: datetime
+    event_type: str = "work"  # "work", "break", "meeting"
+    ai_reasoning: Optional[str] = None
+
+class CalendarEventCreate(CalendarEventBase):
+    pass
+
+class CalendarEventUpdate(BaseModel):
+    scheduled_start_time: Optional[datetime] = None
+    scheduled_end_time: Optional[datetime] = None
+    event_type: Optional[str] = None
+    ai_reasoning: Optional[str] = None
+
+class CalendarEvent(CalendarEventBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+class CalendarEventResponse(CalendarEventBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    task: Optional[TaskResponse] = None  # Include task information
+
+# Calendar Scheduling Models
+class TaskScheduleRequest(BaseModel):
+    """Request to schedule undone tasks using AI"""
+    date_range_start: datetime = Field(..., description="Start date for scheduling (e.g., today)")
+    date_range_end: datetime = Field(..., description="End date for scheduling (e.g., one week from today)")
+    work_hours_start: str = Field(default="09:00", description="Daily work start time (HH:MM format)")
+    work_hours_end: str = Field(default="18:00", description="Daily work end time (HH:MM format)")
+    break_duration_minutes: int = Field(default=15, description="Break time between tasks in minutes")
+    include_weekends: bool = Field(default=False, description="Whether to schedule tasks on weekends")
+
+class TaskScheduleResponse(BaseModel):
+    """Response containing scheduled tasks with AI reasoning"""
+    events: List[CalendarEventResponse]
+    ai_reasoning: str = Field(..., description="AI explanation for the scheduling decisions")
+    message: str = "任务时间安排已生成"
+

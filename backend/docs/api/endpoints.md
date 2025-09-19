@@ -304,6 +304,19 @@ Generated from OpenAPI specification
 
 ---
 
+### PATCH /api/tasks/{task_id}/status
+**Summary:** Update Task Status
+**Description:** Update task status (undo/done)
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
+**Request Body:**
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
 ### GET /api/tasks/{task_id}/execution-procedures
 **Summary:** Get Task Execution Procedures
 **Description:** Get execution procedures for a specific task
@@ -412,6 +425,35 @@ Uses AI OCR if active imageOCR provider is configured, otherwise falls back to E
 
 ---
 
+### PATCH /api/tasks/{task_id}/execution-procedures/{procedure_number}
+**Summary:** Update Execution Procedure
+**Description:** Update individual execution procedure completion status or content
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
+- `procedure_number` (path) - integer (required): 
+**Request Body:**
+- Content-Type: application/json
+- Schema: ExecutionProcedureUpdate
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### DELETE /api/tasks/{task_id}/execution-procedures/{procedure_number}
+**Summary:** Delete Execution Procedure
+**Description:** Delete individual execution procedure
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `task_id` (path) - integer (required): 
+- `procedure_number` (path) - integer (required): 
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
 ## User Profile
 ### GET /api/profile/
 **Summary:** Get User Profile
@@ -504,6 +546,73 @@ Uses AI OCR if active imageOCR provider is configured, otherwise falls back to E
 **Parameters:**
 - `dimension` (path) - string (required): 
 **Request Body:**
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+## calendar
+### POST /api/calendar/schedule-tasks
+**Summary:** Schedule Tasks With Ai
+**Description:** Use AI to intelligently schedule undone tasks based on their properties
+**Authentication:** Required (JWT Bearer Token)
+**Request Body:**
+- Content-Type: application/json
+- Schema: TaskScheduleRequest
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### GET /api/calendar/events
+**Summary:** Get Calendar Events
+**Description:** Get calendar events for a user within a date range
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `start_date` (query) - string (optional): 
+- `end_date` (query) - string (optional): 
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### DELETE /api/calendar/events
+**Summary:** Clear Calendar Events
+**Description:** Clear calendar events within a date range (or all if no dates specified)
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `start_date` (query) - string (optional): 
+- `end_date` (query) - string (optional): 
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### PUT /api/calendar/events/{event_id}
+**Summary:** Update Calendar Event
+**Description:** Update a calendar event
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `event_id` (path) - integer (required): 
+**Request Body:**
+- Content-Type: application/json
+- Schema: CalendarEventUpdate
+**Responses:**
+- `200`: Successful Response
+- `422`: Validation Error
+
+---
+
+### DELETE /api/calendar/events/{event_id}
+**Summary:** Delete Calendar Event
+**Description:** Delete a calendar event
+**Authentication:** Required (JWT Bearer Token)
+**Parameters:**
+- `event_id` (path) - integer (required): 
 **Responses:**
 - `200`: Successful Response
 - `422`: Validation Error

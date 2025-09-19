@@ -1519,4 +1519,201 @@ class AIServiceSQLite:
             logger.info("Using fallback advice due to service error")
             return fallback_advice
 
+    def _build_calendar_scheduling_prompt(self, user_context_string: str, tasks_context: str) -> str:
+        """Build AI prompt for intelligent task scheduling"""
+        return f"""# 角色定义
+你是一位专业的时间管理专家和智能日程规划助手，擅长根据任务的特性、优先级、时间要求进行科学的任务安排。
+
+# 任务目标
+根据用户的待办任务信息，智能地安排时间表，生成合理的日程安排。你需要综合考虑：
+1. 任务的截止时间优先级
+2. 任务的重要性和紧急度（Eisenhower Matrix）
+3. 任务难度和预估耗时
+4. 用户的工作习惯和能力水平
+5. 合理的工作节奏和休息时间
+
+{user_context_string}
+
+{tasks_context}
+
+# 安排原则
+1. **截止时间优先**：越接近截止时间的任务优先安排
+2. **重要紧急矩阵**：高重要+高紧急 > 高重要+低紧急 > 低重要+高紧急 > 低重要+低紧急
+3. **难度平衡**：避免连续安排高难度任务，适当穿插简单任务调节
+4. **时间缓冲**：为每个任务预留10-15分钟缓冲时间
+5. **精力管理**：上午安排需要高专注度的任务，下午安排相对轻松的任务
+
+# 输出格式要求
+为每个任务返回一个JSON对象，包含：
+- task_id: 任务ID
+- scheduled_start_time: 安排的开始时间（ISO格式）
+- scheduled_end_time: 安排的结束时间（ISO格式）
+- ai_reasoning: 安排该时间段的AI分析原因
+
+返回JSON数组格式：
+[
+  {{
+    "task_id": 1,
+    "scheduled_start_time": "2024-01-15T09:00:00",
+    "scheduled_end_time": "2024-01-15T11:00:00",
+    "ai_reasoning": "高优先级任务，安排在上午精力充沛时段"
+  }}
+]
+
+只返回JSON数组，不要其他内容。"""
+
+    async def schedule_tasks_with_ai(self, user_id: int, tasks: List[Dict[str, Any]], 
+                                   schedule_params: Dict[str, Any], db: Session) -> List[Dict[str, Any]]:
+        """
+        Use AI to intelligently schedule undone tasks based on their properties
+        
+        Args:
+            user_id: User ID to get active provider and context
+            tasks: List of task dictionaries with id, title, content, deadline, urgency, importance, difficulty, cost_time_hours
+            schedule_params: Dict containing date_range_start, date_range_end, work_hours_start, work_hours_end, etc.
+            db: Database session
+            
+        Returns:
+            List of scheduling events: [{"task_id": int, "scheduled_start_time": str, "scheduled_end_time": str, "ai_reasoning": str}]
+        """
+        logger.info(f"Starting AI task scheduling for user {user_id} with {len(tasks)} tasks")
+        
+        provider = self.get_active_provider(user_id, db, "text")
+        if not provider:
+            raise ValueError("No active text AI provider configured")
+        
+        # Get user context for personalized scheduling
+        user_context = self.get_user_profile_info(user_id, db)
+        user_context_string = self._build_user_context_string(user_context)
+        
+        # Build tasks context string
+        tasks_context = f"""
+# 待安排任务清单
+共有 {len(tasks)} 个未完成任务需要安排：
+
+"""
+        for task in tasks:
+            deadline_str = task.get('deadline', '无截止时间')
+            if deadline_str and deadline_str != '无截止时间':
+                try:
+                    # Convert datetime to string if needed
+                    if hasattr(deadline_str, 'strftime'):
+                        deadline_str = deadline_str.strftime('%Y-%m-%d %H:%M')
+                except:
+                    pass
+            
+            tasks_context += f"""任务ID {task.get('id', '')}: {task.get('title', '')}
+- 内容: {task.get('content', '')}
+- 截止时间: {deadline_str}
+- 紧急度: {task.get('urgency', 'low')}
+- 重要性: {task.get('importance', 'low')}
+- 难度等级: {task.get('difficulty', 5)}/10
+- 预估耗时: {task.get('cost_time_hours', 2.0)} 小时
+
+"""
+
+        # Add scheduling parameters context
+        tasks_context += f"""
+# 安排时间范围
+- 开始日期: {schedule_params.get('date_range_start', '')}
+- 结束日期: {schedule_params.get('date_range_end', '')}
+- 每日工作时间: {schedule_params.get('work_hours_start', '09:00')} - {schedule_params.get('work_hours_end', '18:00')}
+- 任务间休息时间: {schedule_params.get('break_duration_minutes', 15)} 分钟
+- 是否包含周末: {'是' if schedule_params.get('include_weekends', False) else '否'}
+"""
+
+        try:
+            # Build AI prompt
+            system_prompt = self._build_calendar_scheduling_prompt(user_context_string, tasks_context)
+            user_prompt = "请根据以上信息，为所有待办任务生成智能时间安排。"
+            
+            config = provider.config
+            timeout = self._get_timeout_config(config)
+            
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+                
+                # Use appropriate token limits for calendar scheduling
+                max_tokens_for_scheduling = config.get("max_tokens", 3000)
+                payload = self._build_payload(config, messages, stream=False, max_tokens_override=max_tokens_for_scheduling)
+                
+                headers = {
+                    "Authorization": f"Bearer {config.get('api_key', '')}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = await client.post(
+                    f"{config.get('base_url', 'https://api.openai.com')}/chat/completions",
+                    json=payload,
+                    headers=headers
+                )
+                
+                if response.status_code != 200:
+                    error_text = response.text
+                    logger.error(f"AI API error {response.status_code}: {error_text}")
+                    raise Exception(f"AI API error {response.status_code}: {error_text}")
+                
+                result = response.json()
+                message = result.get("choices", [{}])[0].get("message", {})
+                ai_response = message.get("content", "")
+                
+                logger.info(f"AI calendar scheduling response: {ai_response[:500]}...")
+                
+                # Extract and parse JSON response
+                schedule_data = self._extract_and_clean_json(ai_response)
+                
+                if isinstance(schedule_data, list):
+                    validated_schedule = []
+                    for event in schedule_data:
+                        validated_event = {
+                            "task_id": event.get("task_id", 0),
+                            "scheduled_start_time": event.get("scheduled_start_time", ""),
+                            "scheduled_end_time": event.get("scheduled_end_time", ""),
+                            "ai_reasoning": event.get("ai_reasoning", "AI智能安排")
+                        }
+                        validated_schedule.append(validated_event)
+                    
+                    logger.info(f"Generated {len(validated_schedule)} scheduling events")
+                    return validated_schedule
+                else:
+                    raise ValueError("AI returned invalid schedule format")
+                    
+        except Exception as e:
+            logger.error(f"AI calendar scheduling failed: {e}")
+            # Return fallback schedule based on deadline priority
+            fallback_schedule = []
+            
+            # Sort tasks by deadline (None/missing deadlines go to end)
+            sorted_tasks = sorted(tasks, key=lambda t: t.get('deadline') or '9999-12-31')
+            
+            # Generate simple time-based schedule
+            from datetime import datetime, timedelta
+            current_time = datetime.fromisoformat(str(schedule_params.get('date_range_start', datetime.now())))
+            work_start = schedule_params.get('work_hours_start', '09:00')
+            current_time = current_time.replace(
+                hour=int(work_start.split(':')[0]), 
+                minute=int(work_start.split(':')[1])
+            )
+            
+            for task in sorted_tasks:
+                duration_hours = task.get('cost_time_hours', 2.0)
+                end_time = current_time + timedelta(hours=duration_hours)
+                
+                fallback_schedule.append({
+                    "task_id": task.get('id', 0),
+                    "scheduled_start_time": current_time.isoformat(),
+                    "scheduled_end_time": end_time.isoformat(),
+                    "ai_reasoning": f"按截止时间优先级安排，预计耗时{duration_hours}小时"
+                })
+                
+                # Add break time
+                break_minutes = schedule_params.get('break_duration_minutes', 15)
+                current_time = end_time + timedelta(minutes=break_minutes)
+            
+            logger.info(f"Using fallback schedule with {len(fallback_schedule)} events")
+            return fallback_schedule
+
 ai_service_sqlite = AIServiceSQLite()
