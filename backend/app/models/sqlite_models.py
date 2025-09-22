@@ -363,10 +363,36 @@ class TaskScheduleRequest(BaseModel):
     work_hours_end: str = Field(default="18:00", description="Daily work end time (HH:MM format)")
     break_duration_minutes: int = Field(default=15, description="Break time between tasks in minutes")
     include_weekends: bool = Field(default=False, description="Whether to schedule tasks on weekends")
+    current_timezone: Optional[str] = Field(None, description="User's current timezone (e.g., 'America/New_York')")
+    current_time: Optional[str] = Field(None, description="Current time in ISO format")
 
 class TaskScheduleResponse(BaseModel):
     """Response containing scheduled tasks with AI reasoning"""
     events: List[CalendarEventResponse]
     ai_reasoning: str = Field(..., description="AI explanation for the scheduling decisions")
     message: str = "任务时间安排已生成"
+
+# Calendar Settings Models
+class CalendarSettingsBase(BaseModel):
+    work_hours_start: str = Field(default="09:00", pattern="^[0-2][0-9]:[0-5][0-9]$", description="Work start time in HH:MM format")
+    work_hours_end: str = Field(default="18:00", pattern="^[0-2][0-9]:[0-5][0-9]$", description="Work end time in HH:MM format")
+    break_duration_minutes: int = Field(default=15, ge=5, le=120, description="Break duration between tasks in minutes")
+    include_weekends: bool = Field(default=False, description="Whether to schedule tasks on weekends")
+
+class CalendarSettingsCreate(CalendarSettingsBase):
+    pass
+
+class CalendarSettingsUpdate(BaseModel):
+    work_hours_start: Optional[str] = Field(None, pattern="^[0-2][0-9]:[0-5][0-9]$")
+    work_hours_end: Optional[str] = Field(None, pattern="^[0-2][0-9]:[0-5][0-9]$")
+    break_duration_minutes: Optional[int] = Field(None, ge=5, le=120)
+    include_weekends: Optional[bool] = None
+
+class CalendarSettingsResponse(CalendarSettingsBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
 

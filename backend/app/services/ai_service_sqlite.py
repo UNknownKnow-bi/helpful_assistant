@@ -1537,26 +1537,48 @@ class AIServiceSQLite:
 {tasks_context}
 
 # 安排原则
-1. **截止时间优先**：越接近截止时间的任务优先安排
-2. **重要紧急矩阵**：高重要+高紧急 > 高重要+低紧急 > 低重要+高紧急 > 低重要+低紧急
-3. **难度平衡**：避免连续安排高难度任务，适当穿插简单任务调节
-4. **时间缓冲**：为每个任务预留10-15分钟缓冲时间
-5. **精力管理**：上午安排需要高专注度的任务，下午安排相对轻松的任务
+1. 当前时间约束：所有任务必须安排在当前时间之后，不能安排在过去的时间
+2. 截止时间优先：越接近截止时间的任务优先安排
+3. 重要紧急矩阵：高重要+高紧急 > 高重要+低紧急 > 低重要+高紧急 > 低重要+低紧急
+4. 难度平衡：避免连续安排高难度任务，适当穿插简单任务调节
+5. 时间缓冲：为每个任务预留缓冲时间
+6. 精力管理：上午安排需要高专注度的任务，下午安排相对轻松的任务
+7. 执行步骤优化：充分考虑任务的执行步骤，为复杂流程预留足够时间
+8. 大任务分块：对于耗时超过4小时的任务，可以考虑拆分成多个时间块分布在不同时间段，避免单日过度工作
+
+# 大任务分块策略
+- 单次工作时长：每个时间块建议2-3小时，避免超过5小时连续工作
+- 分布原则：将大任务分散到多天，保持工作强度平衡
+- 标识方法：为同一任务的不同时间块添加进度标识，如"第1/3部分"、"第2/3部分"
 
 # 输出格式要求
-为每个任务返回一个JSON对象，包含：
+为每个任务的每个时间块返回一个JSON对象。重要：耗时超过4小时任务根据紧急性、同时间任务数等因素考虑拆分成多个对象
+
+每个对象包含：
 - task_id: 任务ID
 - scheduled_start_time: 安排的开始时间（ISO格式）
 - scheduled_end_time: 安排的结束时间（ISO格式）
-- ai_reasoning: 安排该时间段的AI分析原因
+- ai_reasoning: 安排该时间段的AI分析原因（包含分部分信息，如"任务第1/3部分"）
 
-返回JSON数组格式：
+返回JSON数组格式（大任务会有多个条目）：
 [
   {{
     "task_id": 1,
     "scheduled_start_time": "2024-01-15T09:00:00",
-    "scheduled_end_time": "2024-01-15T11:00:00",
-    "ai_reasoning": "高优先级任务，安排在上午精力充沛时段"
+    "scheduled_end_time": "2024-01-15T13:00:00",
+    "ai_reasoning": "大任务第1/4部分（4小时），安排在上午精力充沛时段"
+  }},
+  {{
+    "task_id": 1,
+    "scheduled_start_time": "2024-01-16T09:00:00",
+    "scheduled_end_time": "2024-01-16T13:00:00",
+    "ai_reasoning": "大任务第2/4部分（4小时），继续推进核心工作"
+  }},
+  {{
+    "task_id": 2,
+    "scheduled_start_time": "2024-01-15T14:00:00",
+    "scheduled_end_time": "2024-01-15T16:00:00",
+    "ai_reasoning": "小任务一次性完成，安排在下午时段"
   }}
 ]
 
@@ -1602,20 +1624,50 @@ class AIServiceSQLite:
                 except:
                     pass
             
+            # Parse execution procedures if available
+            execution_procedures_text = ""
+            execution_procedures = task.get('execution_procedures')
+            if execution_procedures:
+                try:
+                    import json
+                    procedures = json.loads(execution_procedures) if isinstance(execution_procedures, str) else execution_procedures
+                    if procedures:
+                        execution_procedures_text = "\n- 执行步骤: "
+                        for i, proc in enumerate(procedures, 1):
+                            procedure_content = proc.get('procedure_content', '').strip()
+                            key_result = proc.get('key_result', '').strip()
+                            if procedure_content:
+                                execution_procedures_text += f"\n  步骤{i}: {procedure_content}"
+                                if key_result:
+                                    execution_procedures_text += f" (关键结果: {key_result})"
+                except:
+                    pass
+            
             tasks_context += f"""任务ID {task.get('id', '')}: {task.get('title', '')}
 - 内容: {task.get('content', '')}
 - 截止时间: {deadline_str}
 - 紧急度: {task.get('urgency', 'low')}
 - 重要性: {task.get('importance', 'low')}
 - 难度等级: {task.get('difficulty', 5)}/10
-- 预估耗时: {task.get('cost_time_hours', 2.0)} 小时
+- 预估耗时: {task.get('cost_time_hours', 2.0)} 小时{execution_procedures_text}
 
 """
 
-        # Add scheduling parameters context
+        # Add scheduling parameters context with current time
+        current_time = schedule_params.get('current_time')
+        current_timezone = schedule_params.get('current_timezone', 'local')
+        current_time_str = ""
+        if current_time:
+            try:
+                weekday_names = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+                weekday = weekday_names[current_time.weekday()]
+                current_time_str = f"- 当前时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')} ({weekday}) [时区: {current_timezone}]\n-所有任务时间必须安排在当前时间之后，不能安排在过去\n"
+            except:
+                current_time_str = ""
+        
         tasks_context += f"""
 # 安排时间范围
-- 开始日期: {schedule_params.get('date_range_start', '')}
+{current_time_str}- 开始日期: {schedule_params.get('date_range_start', '')}
 - 结束日期: {schedule_params.get('date_range_end', '')}
 - 每日工作时间: {schedule_params.get('work_hours_start', '09:00')} - {schedule_params.get('work_hours_end', '18:00')}
 - 任务间休息时间: {schedule_params.get('break_duration_minutes', 15)} 分钟

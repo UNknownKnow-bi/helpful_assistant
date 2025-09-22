@@ -167,3 +167,18 @@ class CalendarEvent(Base):
     # Relationships
     user = relationship("User")
     task = relationship("Task")
+
+class CalendarSettings(Base):
+    __tablename__ = "calendar_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    work_hours_start = Column(String(5), default="09:00")  # "HH:MM" format
+    work_hours_end = Column(String(5), default="18:00")    # "HH:MM" format
+    break_duration_minutes = Column(Integer, default=15)   # Break time between tasks
+    include_weekends = Column(Boolean, default=False)      # Whether to schedule on weekends
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")

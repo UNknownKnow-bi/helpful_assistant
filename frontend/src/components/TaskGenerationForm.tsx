@@ -296,7 +296,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                       >
                         {isExtracting ? (
                           <>
-                            <span className="animate-spin mr-2">⏳</span>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></div>
                             正在识别图片中的文字...
                           </>
                         ) : (
@@ -359,7 +359,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
                     >
                       {isGenerating ? (
                         <>
-                          <span className="animate-spin mr-2">⏳</span>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></div>
                           AI正在生成任务...
                         </>
                       ) : (
@@ -393,7 +393,7 @@ const TaskGenerationForm: React.FC<TaskGenerationFormProps> = ({
               >
                 {isGenerating ? (
                   <>
-                    <span className="animate-spin mr-2">⏳</span>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></div>
                     AI正在解析...
                   </>
                 ) : (

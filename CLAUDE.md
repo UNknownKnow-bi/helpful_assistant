@@ -420,6 +420,115 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **All workflows**: Seamless 3-step AI integration across all task creation methods
 - **🆕 Frontend UI**: "执行指导" button opens popup with dual tabs for procedures + social advice
 
+### 7. 🆕 AI-Powered Calendar & Task Scheduling System (AI智能日程安排系统)
+
+**✅ FULLY IMPLEMENTED** - Comprehensive calendar system with AI-driven task scheduling and intelligent time management.
+
+**Core Functionality:**
+- **AI-Driven Task Scheduling**: Intelligent arrangement of undone tasks based on Eisenhower Matrix, deadlines, difficulty, and user profile
+- **Personalized Time Management**: User-aware scheduling considering job type, level, and management status
+- **Smart Work Hours Configuration**: Customizable work periods with break time management
+- **Interactive Calendar Interface**: Visual task timeline with priority-coded displays
+- **Real-time Schedule Management**: Dynamic event creation, updating, and deletion capabilities
+
+**🧠 AI Scheduling Intelligence:**
+- **Multi-Factor Analysis**: Considers urgency, importance, difficulty, estimated time, and deadlines
+- **User Context Integration**: Leverages user profile and colleague relationships for personalized scheduling
+- **🆕 Execution Procedures Integration**: AI considers detailed task execution steps when scheduling
+- **🆕 Current Time Awareness**: Real-time timezone detection and current time context prevents past scheduling
+- **🆕 Large Task Chunking**: Automatically splits tasks over 4 hours into multiple manageable time blocks across different days
+- **Energy Management**: Schedules high-concentration tasks during optimal time periods
+- **Time Buffer Management**: Automatic break time allocation between tasks
+- **Weekend Flexibility**: Optional weekend scheduling based on user preferences
+
+**📅 Calendar Features:**
+- **🆕 Persistent Settings**: User preferences automatically saved and restored (work hours, break time, weekend inclusion)
+- **🆕 Chinese Localization**: FullCalendar buttons translated (month/week/day → 月/周/日, today → 今天)
+- **🆕 Task Chunk Visualization**: Multi-part tasks display "第1/3部分" indicators beneath task titles
+- **🆕 Enhanced Event Details**: Comprehensive popup with editable time fields and task information
+- **🆕 Event Deletion**: Delete button in event detail popup with confirmation dialog
+- **Schedule Parameters**: Configurable date ranges, work hours, break duration, and weekend inclusion
+- **✅ FullCalendar Integration**: Real calendar view with month/week/day perspectives using FullCalendar.js
+- **🎨 Colored Dot Priority System**: Clean event display with priority-coded dots instead of full backgrounds
+  - 🔴 **红点** (red-500): 高紧急性 + 高重要性 - 项目启动会议、季度规划复盘
+  - 🟠 **橙点** (orange-400): 低紧急性 + 高重要性 - 游戏数据统计、长期规划
+  - 🔵 **蓝点** (blue-500): 高紧急性 + 低重要性 - 提交周度报告、日常事务
+  - ⚫ **灰点** (gray-400): 低紧急性 + 低重要性 - 市场沟通、假期提醒
+- **🎯 Today Indicator**: Target icon (🎯) before today's column/cell across all calendar views
+- **📱 Minimalist Event Display**: Task titles truncated with chunk information display
+- **🎯 Interactive Event Management**: Click to view details, drag to move, resize to adjust duration
+- **Clean Interface Design**: Transparent calendar backgrounds with only essential visual elements
+- **AI Reasoning Display**: Comprehensive scheduling explanations with chunk progress indicators
+- **Batch Operations**: Clear all events or generate new schedules with single-click operations
+- **🆕 Drag & Drop Support**: Move events by dragging to new time slots with automatic API updates
+- **🆕 Event Resizing**: Adjust event duration by dragging edges with real-time persistence
+- **🆕 Multi-View Support**: Month grid, week timeline, and day detail views with Chinese localization
+
+**🔧 Technical Implementation:**
+- **🆕 CalendarSettings Database**: Persistent user preferences with automatic silent saving and loading
+- **🆕 Timezone Integration**: Real-time timezone detection (`Intl.DateTimeFormat().resolvedOptions().timeZone`) with UTC to local time conversion
+- **🆕 Enhanced AI Prompts**: Execution procedures integration, current time context, and large task chunking strategies
+- **🆕 Task Chunking System**: AI automatically splits 4+ hour tasks into 2-3 hour manageable blocks across multiple days
+- **Database Models**: CalendarEvent and CalendarSettings models with task relationships and AI reasoning storage
+- **API Endpoints**: Complete CRUD operations for calendar events, settings, and AI scheduling requests
+- **✅ FullCalendar Frontend**: React-based calendar using @fullcalendar/react with time grid and day grid plugins
+- **🎨 Minimalist UI Design**: 
+  - Transparent event and calendar backgrounds using CSS `!important` overrides
+  - Colored dot system (8px dots) with priority-based colors from Tailwind palette
+  - Chunk indicators ("第1/3部分") beneath task titles for multi-part tasks
+  - Target emoji (🎯) for today identification across all views
+- **Event Content Optimization**: Smart title truncation with chunk information display
+- **CSS Architecture**: Comprehensive FullCalendar style overrides for transparent design
+- **Real-time Updates**: React Query integration with optimistic UI updates and automatic settings persistence
+- **AI Service Integration**: Enhanced ai_service_sqlite.py with execution procedures, timezone context, and chunking logic
+- **Authentication Security**: Proper JWT token handling and protected route implementation
+- **Error Handling**: Graceful fallbacks with deadline-priority based scheduling when AI fails and event reversion on API failures
+- **🆕 Interactive Features**: Event detail popup with editable times, delete functionality, and comprehensive task information display
+
+**🛠️ Implementation Details:**
+- **Frontend Calendar Page**: `/calendar` route with "智能日程" navigation menu item
+- **Scheduling Parameters**: Configurable date ranges, work hours (09:00-18:00), break duration (15min), weekend inclusion
+- **AI Scheduling Method**: `_build_calendar_scheduling_prompt()` with multi-factor analysis and user context integration
+- **Database Session**: Consistent SessionLocal usage with custom get_db() dependency for authentication compatibility
+- **Visual Interface**: Color-coded priority system, task duration display, AI reasoning explanations
+- **Real-time Updates**: React Query integration with automatic cache invalidation and optimistic updates
+
+**📋 API Reference:** Full calendar API documentation available in backend API docs with scheduling endpoints and event management operations.
+
+**⚡ Enhanced Execution Workflow:**
+1. **Task Creation**: User creates task (manual/AI/image)
+2. **Context Gathering**: System retrieves user profile and colleague information
+3. **AI Analysis (Step 2)**: Project management AI generates structured execution steps
+4. **Database Storage**: Procedures stored as JSON in SQLite
+5. **🆕 AI Psychology Analysis (Step 3)**: Organizational psychology AI generates social advice
+6. **🆕 Social Database Storage**: Social advice stored as JSON in SQLite
+7. **API Access**: Both procedures and social advice available via dedicated endpoints
+8. **Manual Override**: Users can regenerate both procedures and social advice independently
+
+**🔧 Technical Implementation:**
+- **Enhanced AI Service**: `generate_task_execution_guidance()` and `generate_social_advice()` methods
+- **Background Processing**: Proper asyncio.create_task() with database session management
+- **Database Session Fix**: Individual SessionLocal() instances for background tasks to prevent session conflicts
+- **Dual AI Analysis**: Sequential execution procedures → social advice generation workflow
+- **Error Handling**: Graceful fallbacks when AI provider unavailable with comprehensive logging
+- **JSON Serialization**: Proper handling of dual JSON data structures in SQLite TEXT columns
+- **🆕 Frontend Integration**: TaskProcedurePopup component with tabbed interface for procedures + social advice
+
+**🆕 Interactive Procedure Management:**
+- **✅ Completion Tracking**: Individual checkbox for each procedure step (步骤一, 步骤二) with real-time status updates
+- **✏️ Inline Editing**: Direct editing of procedure content and key results with save/cancel functionality
+- **🗑️ Delete Operations**: Remove individual procedures with automatic step renumbering
+- **📁 Fold/Expand Controls**: Collapsible procedure cards showing only step titles when folded
+- **🔄 Auto-Fold on Completion**: Procedures automatically fold when marked as complete to reduce visual clutter
+- **💾 Real-time Persistence**: All changes immediately saved to database with optimistic UI updates
+
+**✅ Integration Points:**
+- **Manual Task Creation**: Both procedures and social advice generated after task save
+- **AI Task Generation**: Each generated task gets both execution procedures and social advice
+- **Image-to-Task**: OCR-based tasks include both execution guidance and social intelligence
+- **All workflows**: Seamless 3-step AI integration across all task creation methods
+- **🆕 Frontend UI**: "执行指导" button opens popup with dual tabs for procedures + social advice
+
 ## 🎨 UI/UX Refactoring & Enhancement (智时助手界面重构)
 
 **✅ COMPLETED** - Comprehensive UI redesign implementing modern design principles with sophisticated color theming and enhanced user experience.
@@ -506,21 +615,27 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 **🔄 Current Focus:**
 
 1. **Prompt Engineering Optimization**
-   - Fine-tune AI prompts for better personality-aware task analysis
+   - Fine-tune AI prompts for better calendar scheduling decisions
    - Enhance social intelligence accuracy with more nuanced Big Five integration
    - Optimize reasoning model prompt strategies for DeepSeek-R1
+   - Improve calendar scheduling prompts for better time management
 
 2. **UI/UX Enhancement**
    - Implement modern UI framework upgrade (shadcn/ui v2 or similar)
    - Enhance visual design consistency across all components
    - Improve responsive design for mobile/tablet experiences
    - Add progressive web app (PWA) capabilities
+   - Calendar interface improvements and mobile optimization
 
 3. **Performance & Scalability**
    - Database query optimization for large dataset handling
    - AI request caching strategies for frequently used operations
    - WebSocket connection pooling and management improvements
+   - Calendar event indexing and performance optimization
 - to
 - to memorize
 - update claude.md with what u had done,just update the matched part with the function,no api endpoint detail,api and data schema info
+- to
+- to
+- to
 - to

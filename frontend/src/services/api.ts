@@ -19,7 +19,12 @@ import type {
   UserProfileUpdate,
   WorkRelationship,
   WorkRelationshipCreate,
-  WorkRelationshipUpdate
+  WorkRelationshipUpdate,
+  CalendarEvent,
+  TaskScheduleRequest,
+  TaskScheduleResponse,
+  CalendarSettings,
+  CalendarSettingsUpdate
 } from '@/types'
 
 const API_BASE_URL = '/api'
@@ -409,5 +414,52 @@ export const workRelationshipsApi = {
   
   delete: async (id: number): Promise<void> => {
     await api.delete(`/profile/relationships/${id}`)
+  },
+}
+
+// Calendar API
+export const calendarApi = {
+  scheduleTasksWithAI: async (request: TaskScheduleRequest): Promise<TaskScheduleResponse> => {
+    const response = await api.post('/calendar/schedule-tasks', request)
+    return response.data
+  },
+
+  getEvents: async (startDate?: string, endDate?: string): Promise<CalendarEvent[]> => {
+    const params = new URLSearchParams()
+    if (startDate) params.append('start_date', startDate)
+    if (endDate) params.append('end_date', endDate)
+    
+    const response = await api.get(`/calendar/events?${params}`)
+    return response.data
+  },
+
+  clearEvents: async (startDate?: string, endDate?: string): Promise<{ message: string }> => {
+    const params = new URLSearchParams()
+    if (startDate) params.append('start_date', startDate)
+    if (endDate) params.append('end_date', endDate)
+    
+    const response = await api.delete(`/calendar/events?${params}`)
+    return response.data
+  },
+
+  updateEvent: async (id: number, data: Partial<CalendarEvent>): Promise<CalendarEvent> => {
+    const response = await api.put(`/calendar/events/${id}`, data)
+    return response.data
+  },
+
+  deleteEvent: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/calendar/events/${id}`)
+    return response.data
+  },
+
+  // Calendar Settings
+  getSettings: async (): Promise<CalendarSettings> => {
+    const response = await api.get('/calendar/settings')
+    return response.data
+  },
+
+  updateSettings: async (data: CalendarSettingsUpdate): Promise<CalendarSettings> => {
+    const response = await api.put('/calendar/settings', data)
+    return response.data
   },
 }

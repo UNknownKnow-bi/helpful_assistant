@@ -242,3 +242,67 @@ export interface UserProfileCreate {
 
 export interface UserProfileUpdate extends UserProfileCreate {}
 
+// Calendar Types
+export interface CalendarEvent {
+  id: number
+  task_id: number
+  scheduled_start_time: string
+  scheduled_end_time: string
+  event_type: 'work' | 'break' | 'meeting'
+  ai_reasoning?: string
+  created_at: string
+  updated_at: string
+  task?: Task  // Include task information
+}
+
+export interface CalendarEventCreate {
+  task_id: number
+  scheduled_start_time: string
+  scheduled_end_time: string
+  event_type?: 'work' | 'break' | 'meeting'
+  ai_reasoning?: string
+}
+
+export interface CalendarEventUpdate {
+  scheduled_start_time?: string
+  scheduled_end_time?: string
+  event_type?: 'work' | 'break' | 'meeting'
+  ai_reasoning?: string
+}
+
+export interface TaskScheduleRequest {
+  date_range_start: string
+  date_range_end: string
+  work_hours_start?: string
+  work_hours_end?: string
+  break_duration_minutes?: number
+  include_weekends?: boolean
+  current_timezone?: string
+  current_time?: string
+}
+
+export interface TaskScheduleResponse {
+  events: CalendarEvent[]
+  ai_reasoning: string
+  message: string
+}
+
+// Calendar Settings Types
+export interface CalendarSettings {
+  id: number
+  user_id: number
+  work_hours_start: string
+  work_hours_end: string
+  break_duration_minutes: number
+  include_weekends: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CalendarSettingsUpdate {
+  work_hours_start?: string
+  work_hours_end?: string
+  break_duration_minutes?: number
+  include_weekends?: boolean
+}
+

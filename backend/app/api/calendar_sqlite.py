@@ -6,10 +6,11 @@ import logging
 
 from app.database.sqlite_connection import SessionLocal
 from app.core.auth_sqlite import get_current_user
-from app.database.sqlite_models import CalendarEvent, Task, User
+from app.database.sqlite_models import CalendarEvent, Task, User, CalendarSettings
 from app.models.sqlite_models import (
     CalendarEventCreate, CalendarEventUpdate, CalendarEventResponse,
-    TaskScheduleRequest, TaskScheduleResponse, TaskResponse
+    TaskScheduleRequest, TaskScheduleResponse, TaskResponse,
+    CalendarSettingsCreate, CalendarSettingsUpdate, CalendarSettingsResponse
 )
 from app.services.ai_service_sqlite import ai_service_sqlite
 
@@ -64,18 +65,46 @@ async def schedule_tasks_with_ai(
                 "urgency": task.urgency,
                 "importance": task.importance,
                 "difficulty": task.difficulty,
-                "cost_time_hours": task.cost_time_hours
+                "cost_time_hours": task.cost_time_hours,
+                "execution_procedures": task.execution_procedures
             }
             tasks_data.append(task_dict)
         
-        # Prepare schedule parameters
+        # Prepare schedule parameters with current time context
+        from datetime import datetime
+        
+        # Use provided current time or fallback to server time
+        current_time = None
+        if request.current_time:
+            try:
+                # Parse UTC time from frontend
+                utc_time = datetime.fromisoformat(request.current_time.replace('Z', '+00:00'))
+                
+                # If user provided timezone, convert to local time
+                if request.current_timezone:
+                    try:
+                        from zoneinfo import ZoneInfo
+                        user_tz = ZoneInfo(request.current_timezone)
+                        current_time = utc_time.replace(tzinfo=ZoneInfo('UTC')).astimezone(user_tz).replace(tzinfo=None)
+                    except:
+                        # Fallback to UTC if timezone conversion fails or zoneinfo not available
+                        current_time = utc_time
+                else:
+                    current_time = utc_time
+            except:
+                current_time = datetime.now()
+        else:
+            current_time = datetime.now()
+        
         schedule_params = {
             "date_range_start": request.date_range_start,
             "date_range_end": request.date_range_end,
             "work_hours_start": request.work_hours_start,
             "work_hours_end": request.work_hours_end,
             "break_duration_minutes": request.break_duration_minutes,
-            "include_weekends": request.include_weekends
+            "include_weekends": request.include_weekends,
+            "current_time": current_time,
+            "current_timezone": request.current_timezone or "local"
         }
         
         # Use AI service to generate schedule
@@ -401,4 +430,83 @@ def clear_calendar_events(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"清除日程事件失败: {str(e)}"
+        )
+
+# Calendar Settings Endpoints
+@router.get("/settings", response_model=CalendarSettingsResponse)
+def get_calendar_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get calendar settings for the current user
+    """
+    try:
+        settings = db.query(CalendarSettings).filter(
+            CalendarSettings.user_id == current_user.id
+        ).first()
+        
+        if not settings:
+            # Create default settings for new user
+            settings = CalendarSettings(
+                user_id=current_user.id,
+                work_hours_start="09:00",
+                work_hours_end="18:00",
+                break_duration_minutes=15,
+                include_weekends=False
+            )
+            db.add(settings)
+            db.commit()
+            db.refresh(settings)
+        
+        logger.info(f"Retrieved calendar settings for user {current_user.id}")
+        return settings
+        
+    except Exception as e:
+        logger.error(f"Failed to get calendar settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取日程设置失败: {str(e)}"
+        )
+
+@router.put("/settings", response_model=CalendarSettingsResponse)
+def update_calendar_settings(
+    update_data: CalendarSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update calendar settings for the current user
+    """
+    try:
+        settings = db.query(CalendarSettings).filter(
+            CalendarSettings.user_id == current_user.id
+        ).first()
+        
+        if not settings:
+            # Create new settings if none exist
+            settings_data = update_data.model_dump(exclude_unset=True)
+            settings = CalendarSettings(
+                user_id=current_user.id,
+                **settings_data
+            )
+            db.add(settings)
+        else:
+            # Update existing settings
+            update_dict = update_data.model_dump(exclude_unset=True)
+            for field, value in update_dict.items():
+                setattr(settings, field, value)
+        
+        db.commit()
+        db.refresh(settings)
+        
+        logger.info(f"Updated calendar settings for user {current_user.id}")
+        return settings
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update calendar settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新日程设置失败: {str(e)}"
         )

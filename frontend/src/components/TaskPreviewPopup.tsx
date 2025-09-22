@@ -309,7 +309,7 @@ const TaskPreviewPopup: React.FC<TaskPreviewPopupProps> = ({
             >
               {isConfirming ? (
                 <>
-                  <span className="animate-spin mr-2">⏳</span>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></div>
                   保存中...
                 </>
               ) : (
