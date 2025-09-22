@@ -457,7 +457,6 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
 - **🎯 Today Indicator**: Target icon (🎯) before today's column/cell across all calendar views
 - **📱 Minimalist Event Display**: Task titles truncated with chunk information display
 - **🎯 Interactive Event Management**: Click to view details, drag to move, resize to adjust duration
-- **Clean Interface Design**: Transparent calendar backgrounds with only essential visual elements
 - **AI Reasoning Display**: Comprehensive scheduling explanations with chunk progress indicators
 - **Batch Operations**: Clear all events or generate new schedules with single-click operations
 - **🆕 Drag & Drop Support**: Move events by dragging to new time slots with automatic API updates
@@ -632,10 +631,3 @@ The feature implements a sophisticated **3-step AI workflow** that automatically
    - AI request caching strategies for frequently used operations
    - WebSocket connection pooling and management improvements
    - Calendar event indexing and performance optimization
-- to
-- to memorize
-- update claude.md with what u had done,just update the matched part with the function,no api endpoint detail,api and data schema info
-- to
-- to
-- to
-- to
