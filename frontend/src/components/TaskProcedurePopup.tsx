@@ -21,6 +21,7 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
   const [socialAdvice, setSocialAdvice] = useState<SocialAdvice[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [regeneratingProcedures, setRegeneratingProcedures] = useState(false)
   const [editingProcedure, setEditingProcedure] = useState<number | null>(null)
   const [editContent, setEditContent] = useState('')
   const [editKeyResult, setEditKeyResult] = useState('')
@@ -71,6 +72,27 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
       alert(`生成失败: ${errorMessage}`)
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const regenerateExecutionProcedures = async () => {
+    if (!confirm('确定要重新生成执行步骤吗？现有的执行步骤将被替换。')) {
+      return
+    }
+
+    setRegeneratingProcedures(true)
+    try {
+      const data = await tasksApi.regenerateExecutionProcedures(task.id)
+      setProcedures(data.execution_procedures || [])
+      // Clear social advice since procedures changed
+      setSocialAdvice([])
+      alert('执行步骤已重新生成')
+    } catch (error: any) {
+      console.error('Failed to regenerate execution procedures:', error)
+      const errorMessage = error?.response?.data?.detail || '重新生成执行步骤失败，请稍后重试'
+      alert(`生成失败: ${errorMessage}`)
+    } finally {
+      setRegeneratingProcedures(false)
     }
   }
 
@@ -194,7 +216,7 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {/* Generate/Regenerate Social Advice Button */}
+          {/* Regenerate Controls */}
           {procedures.length > 0 && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-between">
@@ -204,15 +226,26 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
                     包含执行步骤、关键结果和社会化建议的完整指导方案
                   </p>
                 </div>
-                <Button 
-                  onClick={generateSocialAdvice}
-                  disabled={generating}
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 ml-4"
-                >
-                  {generating ? '生成中...' : socialAdvice.length > 0 ? '重新生成社会化建议' : '生成社会化建议'}
-                </Button>
+                <div className="flex items-center space-x-3">
+                  <Button 
+                    onClick={regenerateExecutionProcedures}
+                    disabled={regeneratingProcedures}
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    {regeneratingProcedures ? '重新生成中...' : '重新生成执行步骤'}
+                  </Button>
+                  <Button 
+                    onClick={generateSocialAdvice}
+                    disabled={generating}
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    {generating ? '生成中...' : socialAdvice.length > 0 ? '重新生成社会化建议' : '生成社会化建议'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

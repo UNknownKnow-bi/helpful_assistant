@@ -69,3 +69,226 @@
     scrollbar-width: none;  /* Firefox */
   }
 }
+
+/* FullCalendar Styles */
+.fullcalendar-container {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.fullcalendar-container .fc {
+  @apply text-slate-700;
+}
+
+.fullcalendar-container .fc-button-primary {
+  @apply bg-primary-500 border-primary-500 text-white;
+}
+
+.fullcalendar-container .fc-button-primary:hover {
+  @apply bg-primary-600 border-primary-600;
+}
+
+.fullcalendar-container .fc-button-primary:disabled {
+  @apply bg-primary-300 border-primary-300;
+}
+
+.fullcalendar-container .fc-daygrid-event {
+  @apply rounded font-medium;
+  color: #000000 !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 1px 2px !important;
+  margin: 1px 0 !important;
+}
+
+.fullcalendar-container .fc-timegrid-event {
+  @apply rounded font-medium;
+  color: #000000 !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 2px 4px !important;
+}
+
+.fullcalendar-container .fc-event-title {
+  color: #000000 !important;
+}
+
+.fullcalendar-container .fc-event-title-container {
+  color: #000000 !important;
+}
+
+.fullcalendar-container .fc-event {
+  color: #000000 !important;
+}
+
+.fullcalendar-container .fc-event .fc-event-main {
+  color: #000000 !important;
+}
+
+/* Ensure our custom event colors override FullCalendar defaults */
+.fullcalendar-container .fc-daygrid-event:not(.fc-event-mirror) {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.fullcalendar-container .fc-timegrid-event:not(.fc-event-mirror) {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+/* Force black text on all event elements */
+.fullcalendar-container .fc-event *,
+.fullcalendar-container .fc-daygrid-event *,
+.fullcalendar-container .fc-timegrid-event * {
+  color: #000000 !important;
+}
+
+/* Remove all event backgrounds and borders completely */
+.fullcalendar-container .fc-event,
+.fullcalendar-container .fc-daygrid-event,
+.fullcalendar-container .fc-timegrid-event,
+.fullcalendar-container .fc-event-main {
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Make sure text is readable in month view dot events */
+.fullcalendar-container .fc-daygrid-dot-event .fc-event-title {
+  color: #000000 !important;
+}
+
+/* Custom transparent event styling with dot design */
+.fullcalendar-container .custom-event-transparent {
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: #000000 !important;
+  font-weight: 500 !important;
+  padding: 2px !important;
+  margin: 1px 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.fullcalendar-container .custom-event-transparent .fc-event-title,
+.fullcalendar-container .custom-event-transparent .fc-event-main,
+.fullcalendar-container .custom-event-transparent * {
+  color: #000000 !important;
+}
+
+/* Optimize month view for dot design */
+.fullcalendar-container .fc-daygrid-event .fc-event-main {
+  padding: 1px 2px !important;
+}
+
+/* Month view event spacing */
+.fullcalendar-container .fc-daygrid-more-link {
+  font-size: 11px !important;
+  color: #6b7280 !important;
+}
+
+.fullcalendar-container .fc-toolbar-title {
+  @apply text-slate-900 font-bold;
+}
+
+.fullcalendar-container .fc-col-header-cell {
+  @apply bg-slate-100 border-slate-200;
+}
+
+.fullcalendar-container .fc-daygrid-day {
+  @apply border-slate-200;
+}
+
+.fullcalendar-container .fc-timegrid-slot {
+  @apply border-slate-100;
+}
+
+.fullcalendar-container .fc-timegrid-axis {
+  @apply text-slate-600;
+}
+
+/* Remove calendar day background colors */
+.fullcalendar-container .fc-daygrid-day-bg {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-daygrid-day-frame {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-daygrid-day {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+/* Remove any remaining calendar backgrounds */
+.fullcalendar-container .fc-scrollgrid-sync-inner {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-scrollgrid {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-daygrid-body {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-view-harness {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+/* Remove 'today' background colors in all views */
+.fullcalendar-container .fc-day-today {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-timegrid-col.fc-day-today {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+.fullcalendar-container .fc-daygrid-day.fc-day-today {
+  background-color: transparent !important;
+  background: none !important;
+}
+
+/* Add target icon for today column in week/day view */
+.fullcalendar-container .fc-timegrid-col.fc-day-today .fc-col-header-cell-cushion::before {
+  content: "🎯 ";
+  font-size: 14px;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* Add target icon for today column header */
+.fullcalendar-container .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion::before {
+  content: "🎯 ";
+  font-size: 14px;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* Also target the general today column header */
+.fullcalendar-container .fc-day-today .fc-col-header-cell-cushion::before {
+  content: "🎯 ";
+  font-size: 14px;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+/* Add target icon for today in month view */
+.fullcalendar-container .fc-daygrid-day.fc-day-today .fc-daygrid-day-number::before {
+  content: "🎯 ";
+  font-size: 12px;
+  margin-right: 2px;
+}

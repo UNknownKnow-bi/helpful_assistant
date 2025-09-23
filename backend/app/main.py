@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database.sqlite_connection import connect_to_database, disconnect_from_database
-from app.api import auth_sqlite, ai_providers_sqlite, chat_sqlite, task_sqlite, user_profile_sqlite, calendar_sqlite
+from app.api import auth_sqlite, ai_providers_sqlite, chat_sqlite, task_sqlite, user_profile_sqlite, calendar_sqlite, feishu_webhook_sqlite
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -83,6 +83,10 @@ app = FastAPI(
         {
             "name": "calendar",
             "description": "AI-powered calendar and task scheduling system",
+        },
+        {
+            "name": "feishu-webhook",
+            "description": "Feishu webhook notifications for task deadlines",
         }
     ]
 )
@@ -103,6 +107,7 @@ app.include_router(chat_sqlite.router, prefix="/api")
 app.include_router(task_sqlite.router, prefix="/api")
 app.include_router(user_profile_sqlite.router, prefix="/api")
 app.include_router(calendar_sqlite.router, prefix="/api")
+app.include_router(feishu_webhook_sqlite.router, prefix="/api", tags=["feishu-webhook"])
 
 @app.get("/")
 async def root():

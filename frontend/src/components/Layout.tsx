@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
-import { MessageSquare, CheckSquare, Settings, User, LogOut, ChevronLeft, ChevronRight, LayoutDashboard, MessageCircle, SlidersHorizontal, UserCircle } from 'lucide-react'
+import { MessageSquare, CheckSquare, Settings, User, LogOut, ChevronLeft, ChevronRight, LayoutDashboard, MessageCircle, SlidersHorizontal, UserCircle, Calendar } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -25,9 +25,11 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { path: '/dashboard', label: '任务管理', icon: LayoutDashboard },
+    { path: '/calendar', label: '智能日程', icon: Calendar },
     { path: '/chat', label: 'AI问答', icon: MessageCircle },
     { path: '/ai-config', label: 'AI配置', icon: SlidersHorizontal },
     { path: '/profile', label: '个人资料', icon: UserCircle },
+    { path: '/settings', label: '系统设置', icon: Settings },
   ]
 
   return (

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **🆕 AI-powered time estimation with user expertise integration**, **✨ interactive procedure management with completion tracking and inline editing**, **📅 AI-powered calendar & task scheduling system**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
+This is the comprehensive API documentation for "智时助手 (Cortex Assistant)" - an AI-powered intelligent assistant for Chinese knowledge workers. The API provides endpoints for task management, AI configuration, real-time chat, user profiling, OCR-based image processing, **🆕 AI-powered task execution procedures**, **🆕 AI-powered social intelligence advice**, **🆕 two-stage task preview & confirmation system**, **🆕 real-time deadline timer system**, **🆕 AI-powered time estimation with user expertise integration**, **✨ interactive procedure management with completion tracking and inline editing**, **📅 AI-powered calendar & task scheduling system**, **🚨 deadline alarm notification system**, and **🎨 sophisticated Eisenhower Matrix-based UI integration**.
 
 ## Base URL
 ```
@@ -89,6 +89,116 @@ Authorization: Bearer <your_jwt_token>
 - `PUT /api/calendar/events/{event_id}` - Update calendar event
 - `DELETE /api/calendar/events/{event_id}` - Delete calendar event
 - `DELETE /api/calendar/events` - Clear calendar events within date range
+
+### 🚨 Deadline Alarm System
+- **Frontend-Only Implementation** - Browser notification system integrated with existing APIs
+- **Three-Tier Alert System** - 2 days, 24 hours, and deadline arrived notifications
+- **No Additional Backend APIs** - Leverages existing task management endpoints
+- **Real-Time Integration** - Works with existing countdown timer and task status updates
+
+---
+
+## 🚨 Deadline Alarm System Implementation
+
+### **Overview**
+The deadline alarm system provides **browser-based push notifications** to alert users about approaching task deadlines. This system is **entirely frontend-implemented** and integrates seamlessly with existing task management APIs without requiring additional backend endpoints.
+
+### **Core Features**
+
+#### **📢 Three-Tier Notification System**
+- **📅 2 Days Before Deadline**: Early warning notification
+  - Title: "📅 任务提醒 - 还有2天"
+  - Message: "任务「{task_title}」将在 {formatted_date} 到期"
+  - Purpose: Allows planning and preparation time
+
+- **⏰ 24 Hours Before Deadline**: Urgent reminder  
+  - Title: "⏰ 紧急任务提醒 - 还有24小时"
+  - Message: "任务「{task_title}」将在 {formatted_date} 到期，请尽快完成！"
+  - Purpose: Immediate action required
+
+- **🚨 Deadline Arrived**: Critical alert
+  - Title: "🚨 任务截止提醒"  
+  - Message: "任务「{task_title}」现在已到期！"
+  - Purpose: Overdue task notification
+
+#### **🔧 Technical Integration**
+
+**Existing API Utilization:**
+- Uses `GET /api/tasks` to fetch task data
+- Integrates with existing `deadline` field in task responses
+- Works with `status` field to filter only active tasks (`status: 'undo'`)
+- No additional API endpoints required
+
+**Frontend Architecture:**
+- **NotificationService** (`notificationService.ts`): Handles Web Push API integration
+- **DeadlineChecker** (`deadlineChecker.ts`): Analyzes deadlines and triggers alerts
+- **TaskCard Integration**: Merged with existing countdown timer (runs every minute)
+- **Settings Management**: Dedicated `/settings` page for notification control
+
+#### **⚡ Performance Optimizations**
+
+**Unified Timer System:**
+- Integrates with existing TaskCard countdown timer
+- Single minute-based interval handles both UI updates and notification checking
+- No separate scheduling system needed
+- Resource-efficient implementation
+
+**Duplicate Prevention:**
+- Tracks sent notifications per task and deadline stage
+- Prevents spam notifications for same deadline threshold
+- Automatic cleanup when tasks are completed or deadlines updated
+
+#### **🎛️ User Experience**
+
+**Permission Management:**
+- Auto-requests browser notification permission (3 seconds after app load)
+- Non-intrusive permission handling with fallback messages
+- Clear status indicators in Settings page
+
+**Settings Interface:**
+- Dedicated Settings page (`/settings`) with notification controls
+- Real-time status display (enabled/disabled/permission status)
+- Test notification functionality
+- Reset notification tracking capability
+
+**Rich Notifications:**
+- Chinese-localized messages with contextual information
+- Formatted deadline dates and times
+- Task title integration
+- Auto-close timers (except for critical deadline arrived notifications)
+
+#### **🔄 Integration with Existing Systems**
+
+**Task Management Integration:**
+- Works with existing task creation, editing, and status updates
+- Automatically adjusts to deadline changes
+- Respects task completion status
+- Integrates with Eisenhower Matrix categorization
+
+**Real-Time Updates:**
+- Synchronized with existing countdown timer system
+- Updates alongside deadline category calculations
+- Maintains consistency with UI deadline displays
+- No additional API calls required for notification functionality
+
+### **Usage Notes**
+
+**Browser Compatibility:**
+- Requires modern browsers with Web Push API support
+- Graceful fallback for unsupported browsers
+- Clear messaging for permission-denied scenarios
+
+**Data Privacy:**
+- All notification logic runs in frontend
+- No additional data stored on backend
+- Uses existing task data only
+- User notification preferences stored locally
+
+**Settings Management:**
+- Accessible via sidebar navigation
+- Visual status indicators for notification system state
+- Test functionality for user verification
+- Independent control without affecting task management
 
 ---
 

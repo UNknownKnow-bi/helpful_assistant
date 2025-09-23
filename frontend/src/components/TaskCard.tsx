@@ -6,6 +6,8 @@ import type { Task } from '@/types'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { PlayCircle, Edit3, Trash2, Check } from 'lucide-react'
+import { deadlineChecker } from '@/services/deadlineChecker'
+import { notificationService } from '@/services/notificationService'
 
 interface TaskCardProps {
   task: Task
@@ -95,11 +97,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   }
 
-  // Update deadline category every minute
+  // Update deadline category every minute and check for notifications
   useEffect(() => {
-    const updateCategory = () => {
+    const updateCategory = async () => {
       const newCategory = calculateDeadlineCategory(task.deadline, task.status)
       setCurrentDeadlineCategory(newCategory)
+      
+      // Check for deadline notifications (integrated with countdown)
+      if (notificationService.isEnabled() && task.status === 'undo' && task.deadline) {
+        const checkResults = deadlineChecker.checkTaskDeadlines([task])
+        if (checkResults.length > 0) {
+          await deadlineChecker.processDeadlineAlerts(checkResults)
+        }
+      }
     }
 
     // Update immediately
@@ -109,7 +119,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     const interval = setInterval(updateCategory, 60000)
     
     return () => clearInterval(interval)
-  }, [task.deadline, task.status])
+  }, [task.deadline, task.status, task.id])
   const formatDate = (dateString?: string) => {
     if (!dateString) return null
     try {

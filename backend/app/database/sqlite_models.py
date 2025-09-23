@@ -182,3 +182,16 @@ class CalendarSettings(Base):
     
     # Relationships
     user = relationship("User")
+
+class FeishuWebhookSettings(Base):
+    __tablename__ = "feishu_webhook_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    webhook_url = Column(String(500), nullable=False)  # Feishu webhook URL
+    is_enabled = Column(Boolean, default=True)  # Enable/disable webhook notifications
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")

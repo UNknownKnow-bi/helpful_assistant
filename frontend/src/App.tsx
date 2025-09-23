@@ -9,6 +9,8 @@ import Dashboard from '@/pages/Dashboard'
 import Chat from '@/pages/Chat'
 import AIConfig from '@/pages/AIConfig'
 import Profile from '@/pages/Profile'
+import Calendar from '@/pages/Calendar'
+import Settings from '@/pages/Settings'
 
 function App() {
   const { isAuthenticated, setUser, logout } = useAuthStore()
@@ -85,6 +87,30 @@ function App() {
           isAuthenticated ? (
             <Layout>
               <Profile />
+            </Layout>
+          ) : (
+            <Navigate to="/login" />
+          )
+        } 
+      />
+      <Route 
+        path="/calendar" 
+        element={
+          isAuthenticated ? (
+            <Layout>
+              <Calendar />
+            </Layout>
+          ) : (
+            <Navigate to="/login" />
+          )
+        } 
+      />
+      <Route 
+        path="/settings" 
+        element={
+          isAuthenticated ? (
+            <Layout>
+              <Settings />
             </Layout>
           ) : (
             <Navigate to="/login" />

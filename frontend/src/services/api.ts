@@ -251,6 +251,20 @@ export const tasksApi = {
     const response = await api.post(`/tasks/${id}/generate-social-advice`)
     return response.data
   },
+
+  regenerateExecutionProcedures: async (id: number): Promise<{
+    task_id: number
+    execution_procedures: Array<{
+      procedure_number: number
+      procedure_content: string
+      key_result: string
+      completed: boolean
+    }>
+    message: string
+  }> => {
+    const response = await api.post(`/tasks/${id}/regenerate-execution-procedures`)
+    return response.data
+  },
   
   updateExecutionProcedure: async (
     taskId: number, 
@@ -462,4 +476,37 @@ export const calendarApi = {
     const response = await api.put('/calendar/settings', data)
     return response.data
   },
+}
+
+// Feishu Webhook API
+export const feishuWebhookApi = {
+  getSettings: async () => {
+    const response = await api.get('/feishu-webhook')
+    return response.data
+  },
+
+  createSettings: async (settings: any) => {
+    const response = await api.post('/feishu-webhook', settings)
+    return response.data
+  },
+
+  updateSettings: async (settings: any) => {
+    const response = await api.put('/feishu-webhook', settings)
+    return response.data
+  },
+
+  deleteSettings: async () => {
+    const response = await api.delete('/feishu-webhook')
+    return response.data
+  },
+
+  testWebhook: async (testRequest?: any) => {
+    const response = await api.post('/feishu-webhook/test', testRequest || {})
+    return response.data
+  },
+
+  sendNotification: async (notificationData: any) => {
+    const response = await api.post('/feishu-webhook/send-notification', notificationData)
+    return response.data
+  }
 }

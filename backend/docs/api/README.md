@@ -13,8 +13,8 @@ Welcome to the 智时助手 (Cortex Assistant) API Documentation Hub. This direc
   - Integration examples and SDKs
 
 ### 🔍 Auto-Generated References
-- **[endpoints.md](./endpoints.md)** - Complete endpoint reference with all 29 API endpoints
-- **[schemas.md](./schemas.md)** - All 24 data models and schema definitions  
+- **[endpoints.md](./endpoints.md)** - Complete endpoint reference with all 40 API endpoints
+- **[schemas.md](./schemas.md)** - All 32 data models and schema definitions  
 - **[openapi.json](./openapi.json)** - OpenAPI 3.0 specification (raw JSON format)
 
 ## 🌐 Interactive Documentation
@@ -54,10 +54,11 @@ python3 open_docs.py
 - **💬 Real-time Chat**: WebSocket streaming with background persistence and manual stop control
 - **👤 User Profiling**: Big Five personality model with comprehensive colleague management
 - **🖼️ OCR Integration**: Dual-mode image-to-text extraction (EasyOCR + AI OCR)
+- **📅 Calendar & Scheduling**: AI-powered task scheduling with intelligent time management
 
 ### API Statistics
-- **Total Endpoints**: 29
-- **Data Models**: 24
+- **Total Endpoints**: 40
+- **Data Models**: 32
 - **API Version**: 2.0.0
 - **Authentication**: JWT Bearer Token
 - **WebSocket Support**: Real-time chat streaming
@@ -89,6 +90,7 @@ Designed for seamless integration with:
 | **Tasks** | 8 | Task generation, CRUD operations, statistics |
 | **Chat** | 9 | Real-time chat, sessions, WebSocket streaming |
 | **User Profile** | 8 | Profile management, personality, relationships |
+| **Calendar** | 5 | AI-powered task scheduling, event management |
 
 ## 🔧 Development Tools
 
@@ -108,6 +110,8 @@ The documentation is automatically generated from the live FastAPI application u
 - **OCR Integration**: Dual-mode image text extraction
 - **User Profiling**: Big Five personality model with colleague management
 - **Dynamic Model Selection**: Real-time model switching during conversations
+- **AI-Powered Calendar**: Intelligent task scheduling with FullCalendar integration
+- **Minimalist UI Design**: Colored dot priority system with transparent backgrounds
 
 ---
 

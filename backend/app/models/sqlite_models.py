@@ -396,3 +396,32 @@ class CalendarSettingsResponse(CalendarSettingsBase):
     created_at: datetime
     updated_at: datetime
 
+# Feishu Webhook Settings Models
+class FeishuWebhookSettingsBase(BaseModel):
+    webhook_url: str = Field(..., max_length=500, description="Feishu webhook URL")
+    is_enabled: bool = Field(default=True, description="Enable/disable webhook notifications")
+
+class FeishuWebhookSettingsCreate(FeishuWebhookSettingsBase):
+    pass
+
+class FeishuWebhookSettingsUpdate(BaseModel):
+    webhook_url: Optional[str] = Field(None, max_length=500)
+    is_enabled: Optional[bool] = None
+
+class FeishuWebhookSettingsResponse(FeishuWebhookSettingsBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+# Feishu Webhook Test Models
+class FeishuWebhookTestRequest(BaseModel):
+    webhook_url: Optional[str] = Field(None, description="Test URL (if not provided, uses saved settings)")
+
+class FeishuWebhookTestResponse(BaseModel):
+    success: bool
+    message: str
+    response_data: Optional[Dict[str, Any]] = None
+
