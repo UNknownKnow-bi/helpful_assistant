@@ -306,3 +306,24 @@ export interface CalendarSettingsUpdate {
   include_weekends?: boolean
 }
 
+// Procedure Memorandum Types
+export interface ProcedureMemorandum {
+  id: number
+  user_id: number
+  task_id: number
+  procedure_number: number
+  memorandum_text: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProcedureMemorandumCreate {
+  task_id: number
+  procedure_number: number
+  memorandum_text: string
+}
+
+export interface ProcedureMemorandumUpdate {
+  memorandum_text: string
+}
+

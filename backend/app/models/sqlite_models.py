@@ -425,3 +425,24 @@ class FeishuWebhookTestResponse(BaseModel):
     message: str
     response_data: Optional[Dict[str, Any]] = None
 
+# Procedure Memorandum Models
+class ProcedureMemorandumBase(BaseModel):
+    memorandum_text: str = Field(..., min_length=1, max_length=1000, description="User's memorandum content")
+
+class ProcedureMemorandumCreate(ProcedureMemorandumBase):
+    task_id: int = Field(..., description="Task ID")
+    procedure_number: int = Field(..., ge=1, description="Procedure step number")
+
+class ProcedureMemorandumUpdate(BaseModel):
+    memorandum_text: str = Field(..., min_length=1, max_length=1000, description="Updated memorandum content")
+
+class ProcedureMemorandumResponse(ProcedureMemorandumBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    task_id: int
+    procedure_number: int
+    created_at: datetime
+    updated_at: datetime
+

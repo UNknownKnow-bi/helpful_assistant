@@ -61,6 +61,10 @@ Authorization: Bearer <your_jwt_token>
 - **🆕 `DELETE /api/tasks/{task_id}/execution-procedures/{procedure_number}`** - Delete individual procedure with auto-renumbering
 - **🆕 `GET /api/tasks/{task_id}/social-advice`** - Get AI-powered social intelligence advice
 - **🆕 `POST /api/tasks/{task_id}/generate-social-advice`** - Generate social intelligence advice
+- **🆕 `GET /api/tasks/{task_id}/procedures/{procedure_number}/memorandum`** - Get memorandum for specific procedure step
+- **🆕 `POST /api/tasks/{task_id}/procedures/{procedure_number}/memorandum`** - Create/update memorandum for procedure step
+- **🆕 `PUT /api/tasks/{task_id}/procedures/{procedure_number}/memorandum`** - Update existing memorandum
+- **🆕 `DELETE /api/tasks/{task_id}/procedures/{procedure_number}/memorandum`** - Delete procedure memorandum
 
 ### 💬 Chat APIs
 - `WebSocket /api/chat/ws/{session_id}` - Real-time chat streaming
@@ -1256,6 +1260,125 @@ Update task status with real-time deadline calculation and timer functionality.
 - Deadline categories change dynamically as time passes
 - Color-coded tags provide instant visual feedback
 - Status changes immediately reflect in Eisenhower Matrix quadrants
+
+---
+
+### 🆕 Procedure Memorandum APIs
+
+The procedure memorandum system allows users to add personal notes and reminders to individual procedure steps through an intuitive hover-based interface.
+
+#### GET /api/tasks/{task_id}/procedures/{procedure_number}/memorandum
+
+Retrieve a memorandum for a specific procedure step.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+- `procedure_number` (integer): The procedure step number (1, 2, 3, etc.)
+
+**Response (Success):**
+```json
+{
+  "id": 1,
+  "user_id": 1,
+  "task_id": 15,
+  "procedure_number": 1,
+  "memorandum_text": "记住要提前联系王部长确认时间安排",
+  "created_at": "2025-01-01T10:00:00Z",
+  "updated_at": "2025-01-01T14:30:00Z"
+}
+```
+
+**Response (Not Found):**
+```json
+{
+  "detail": "Memorandum not found for this procedure"
+}
+```
+
+#### POST /api/tasks/{task_id}/procedures/{procedure_number}/memorandum
+
+Create or update a memorandum for a specific procedure step. This endpoint handles both creation and updates automatically.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+- `procedure_number` (integer): The procedure step number
+
+**Request Body:**
+```json
+{
+  "task_id": 15,
+  "procedure_number": 1,
+  "memorandum_text": "记住要提前联系王部长确认时间安排，他通常在上午10点后有空"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "user_id": 1,
+  "task_id": 15,
+  "procedure_number": 1,
+  "memorandum_text": "记住要提前联系王部长确认时间安排，他通常在上午10点后有空",
+  "created_at": "2025-01-01T10:00:00Z",
+  "updated_at": "2025-01-01T15:45:00Z"
+}
+```
+
+#### PUT /api/tasks/{task_id}/procedures/{procedure_number}/memorandum
+
+Update an existing memorandum for a specific procedure step.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+- `procedure_number` (integer): The procedure step number
+
+**Request Body:**
+```json
+{
+  "memorandum_text": "更新后的备忘录内容：记住要带上上次的会议纪要文档"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "user_id": 1,
+  "task_id": 15,
+  "procedure_number": 1,
+  "memorandum_text": "更新后的备忘录内容：记住要带上上次的会议纪要文档",
+  "created_at": "2025-01-01T10:00:00Z",
+  "updated_at": "2025-01-01T16:20:00Z"
+}
+```
+
+#### DELETE /api/tasks/{task_id}/procedures/{procedure_number}/memorandum
+
+Delete a memorandum for a specific procedure step.
+
+**Path Parameters:**
+- `task_id` (integer): The ID of the task
+- `procedure_number` (integer): The procedure step number
+
+**Response:**
+```json
+{
+  "task_id": 15,
+  "procedure_number": 1,
+  "message": "Memorandum deleted successfully"
+}
+```
+
+**Memorandum System Features:**
+- **Hover-Activated Interface**: Appear instantly when hovering over procedure cards
+- **Auto-Save Functionality**: Content automatically saves when mouse leaves hover box
+- **Smart Content Management**: Empty memorandums are automatically deleted
+- **User Isolation**: Each user can only access their own memorandums
+- **Real-Time Updates**: Changes immediately reflect in the UI
+- **Persistent Storage**: Memorandums persist across sessions and popup reopenings
+
+---
 
 ### Chat APIs
 

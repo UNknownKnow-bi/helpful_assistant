@@ -195,3 +195,18 @@ class FeishuWebhookSettings(Base):
     
     # Relationships
     user = relationship("User")
+
+class ProcedureMemorandum(Base):
+    __tablename__ = "procedure_memorandums"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    procedure_number = Column(Integer, nullable=False)  # Which procedure step (1, 2, 3, etc.)
+    memorandum_text = Column(Text, nullable=False)  # User's memorandum content
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    task = relationship("Task")

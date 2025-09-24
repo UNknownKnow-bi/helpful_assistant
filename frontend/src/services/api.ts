@@ -24,7 +24,10 @@ import type {
   TaskScheduleRequest,
   TaskScheduleResponse,
   CalendarSettings,
-  CalendarSettingsUpdate
+  CalendarSettingsUpdate,
+  ProcedureMemorandum,
+  ProcedureMemorandumCreate,
+  ProcedureMemorandumUpdate
 } from '@/types'
 
 const API_BASE_URL = '/api'
@@ -296,6 +299,37 @@ export const tasksApi = {
     message: string
   }> => {
     const response = await api.delete(`/tasks/${taskId}/execution-procedures/${procedureNumber}`)
+    return response.data
+  },
+
+  // Procedure Memorandum APIs
+  getProcedureMemorandum: async (taskId: number, procedureNumber: number): Promise<ProcedureMemorandum> => {
+    const response = await api.get(`/tasks/${taskId}/procedures/${procedureNumber}/memorandum`)
+    return response.data
+  },
+
+  createProcedureMemorandum: async (taskId: number, procedureNumber: number, memorandumText: string): Promise<ProcedureMemorandum> => {
+    const response = await api.post(`/tasks/${taskId}/procedures/${procedureNumber}/memorandum`, {
+      task_id: taskId,
+      procedure_number: procedureNumber,
+      memorandum_text: memorandumText
+    })
+    return response.data
+  },
+
+  updateProcedureMemorandum: async (taskId: number, procedureNumber: number, memorandumText: string): Promise<ProcedureMemorandum> => {
+    const response = await api.put(`/tasks/${taskId}/procedures/${procedureNumber}/memorandum`, {
+      memorandum_text: memorandumText
+    })
+    return response.data
+  },
+
+  deleteProcedureMemorandum: async (taskId: number, procedureNumber: number): Promise<{
+    task_id: number
+    procedure_number: number
+    message: string
+  }> => {
+    const response = await api.delete(`/tasks/${taskId}/procedures/${procedureNumber}/memorandum`)
     return response.data
   },
 }

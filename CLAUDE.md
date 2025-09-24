@@ -690,6 +690,32 @@ The system transforms 智时助手 from a personal productivity tool into an ent
 - **Interactive Configuration**: Copy-paste JSON configuration with one-click copy functionality
 - **Integrated Testing**: Built-in webhook testing without leaving the settings interface
 
+### 10. Procedure Memorandum System (步骤备忘录系统)
+
+**FULLY IMPLEMENTED** - Interactive hover-based memorandum system for task execution procedures with auto-save functionality.
+
+**Core Functionality:**
+- **Hover-Activated Interface**: Hover over any procedure card to instantly display memorandum box on the right side
+- **Real-time Text Editing**: Direct typing in textarea with immediate visual feedback
+- **Auto-Save on Exit**: Content automatically saves when mouse leaves hover box, no manual save required
+- **Smart Content Management**: Empty memorandums are automatically deleted to keep database clean
+- **Persistent Storage**: All memorandums stored in dedicated database table with user association
+
+**User Experience:**
+- **Seamless Integration**: Hover boxes appear positioned intelligently on the right side of procedure cards
+- **No Click Required**: Pure hover interaction - just hover and start typing
+- **Auto-Fold Behavior**: Completed procedures automatically fold on popup reopening to reduce visual clutter
+- **Clean Interface**: No visual indicators or icons on procedure titles, maintaining clean design
+- **Responsive Positioning**: Smart boundary detection prevents hover boxes from going off-screen
+
+**Technical Implementation:**
+- **Database Layer**: New ProcedureMemorandum table with proper user/task/procedure relationships
+- **API Integration**: Complete CRUD operations for memorandum management
+- **Frontend State**: React state management with real-time updates and change tracking
+- **Auto-Save Logic**: Intelligent save triggering only when content changes, with empty content cleanup
+
+The system transforms procedure execution from static instructions into interactive, personalized workflows where users can add contextual notes and reminders directly to each execution step.
+
 ## Next Priority Tasks
 
 **Current Focus:**
@@ -712,5 +738,6 @@ The system transforms 智时助手 from a personal productivity tool into an ent
    - AI request caching strategies for frequently used operations
    - WebSocket connection pooling and management improvements
    - Calendar event indexing and performance optimization
+- to
 - to
 - to

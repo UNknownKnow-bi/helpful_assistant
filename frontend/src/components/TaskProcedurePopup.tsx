@@ -3,8 +3,8 @@ import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { tasksApi } from '@/services/api'
-import type { Task, ExecutionProcedure, SocialAdvice } from '@/types'
-import { Edit3, Trash2, Save, X, ChevronDown, ChevronUp } from 'lucide-react'
+import type { Task, ExecutionProcedure, SocialAdvice, ProcedureMemorandum } from '@/types'
+import { Edit3, Trash2, Save, X, ChevronDown, ChevronUp, StickyNote, FileText } from 'lucide-react'
 
 interface TaskProcedurePopupProps {
   task: Task
@@ -26,6 +26,9 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
   const [editContent, setEditContent] = useState('')
   const [editKeyResult, setEditKeyResult] = useState('')
   const [foldedProcedures, setFoldedProcedures] = useState<Set<number>>(new Set())
+  const [memorandums, setMemorandums] = useState<Map<number, ProcedureMemorandum>>(new Map())
+  const [hoveredProcedure, setHoveredProcedure] = useState<number | null>(null)
+  const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 })
 
   // Fetch execution procedures when popup opens
   useEffect(() => {
@@ -39,7 +42,26 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
     setLoading(true)
     try {
       const data = await tasksApi.getExecutionProcedures(task.id)
-      setProcedures(data.execution_procedures || [])
+      const fetchedProcedures = data.execution_procedures || []
+      setProcedures(fetchedProcedures)
+      
+      // Auto-fold completed procedures when loading
+      const completedProcedureNumbers = fetchedProcedures
+        .filter(procedure => procedure.completed)
+        .map(procedure => procedure.procedure_number)
+      
+      if (completedProcedureNumbers.length > 0) {
+        setFoldedProcedures(prev => {
+          const newSet = new Set(prev)
+          completedProcedureNumbers.forEach(num => newSet.add(num))
+          return newSet
+        })
+      }
+      
+      // Fetch memorandums after procedures are loaded
+      if (fetchedProcedures.length > 0) {
+        await fetchMemorandumsForProcedures(fetchedProcedures)
+      }
     } catch (error) {
       console.error('Failed to fetch procedures:', error)
     } finally {
@@ -110,9 +132,17 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
           : p
       ))
       
-      // Auto-fold when marked as completed
+      // Auto-fold when marked as completed, unfold when marked as incomplete
       if (!currentCompleted) {
+        // Just completed, so fold it
         setFoldedProcedures(prev => new Set(prev).add(procedureNumber))
+      } else {
+        // Just marked as incomplete, so unfold it
+        setFoldedProcedures(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(procedureNumber)
+          return newSet
+        })
       }
     } catch (error) {
       console.error('Failed to update procedure completion:', error)
@@ -184,6 +214,191 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
       }
       return newSet
     })
+  }
+
+  // Fetch all memorandums for given procedures
+  const fetchMemorandumsForProcedures = async (procedureList: ExecutionProcedure[]) => {
+    if (!procedureList.length) return
+    
+    const memorandumMap = new Map<number, ProcedureMemorandum>()
+    
+    for (const procedure of procedureList) {
+      try {
+        const memorandum = await tasksApi.getProcedureMemorandum(task.id, procedure.procedure_number)
+        memorandumMap.set(procedure.procedure_number, memorandum)
+      } catch (error) {
+        // Memorandum doesn't exist, which is fine
+      }
+    }
+    
+    setMemorandums(memorandumMap)
+  }
+
+  // Handle procedure step hover
+  const handleProcedureHover = (procedureNumber: number, event: React.MouseEvent) => {
+    setHoveredProcedure(procedureNumber)
+    const rect = event.currentTarget.getBoundingClientRect()
+    
+    // Calculate position with screen boundary checks
+    let x = rect.right + 15 // Position to the right of the card with some spacing
+    let y = rect.top + 20   // Position slightly below the top of the card
+    
+    // Check if the hover box would go off-screen (assuming 320px width for the box)
+    if (x + 320 > window.innerWidth) {
+      x = rect.left - 335 // Position to the left instead with spacing
+    }
+    
+    // Ensure the box doesn't go above the viewport
+    if (y < 50) {
+      y = 50
+    }
+    
+    // Ensure the box doesn't go below the viewport (assuming 220px height for the box)
+    if (y + 220 > window.innerHeight) {
+      y = window.innerHeight - 240
+    }
+    
+    setHoverPosition({ x, y })
+  }
+
+  // Delete memorandum
+  const deleteMemorandum = async (procedureNumber: number) => {
+    if (!confirm('确定要删除这个备忘录吗？')) return
+    
+    try {
+      await tasksApi.deleteProcedureMemorandum(task.id, procedureNumber)
+      setMemorandums(prev => {
+        const newMap = new Map(prev)
+        newMap.delete(procedureNumber)
+        return newMap
+      })
+      // Close the hover box after deletion
+      setHoveredProcedure(null)
+    } catch (error) {
+      console.error('Failed to delete memorandum:', error)
+      alert('删除备忘录失败')
+    }
+  }
+
+  // Auto-save memorandum when leaving hover box
+  const handleMemorandumAutoSave = async (procedureNumber: number, text: string) => {
+    if (!text.trim()) {
+      // If empty, delete existing memorandum
+      if (memorandums.has(procedureNumber)) {
+        try {
+          await tasksApi.deleteProcedureMemorandum(task.id, procedureNumber)
+          setMemorandums(prev => {
+            const newMap = new Map(prev)
+            newMap.delete(procedureNumber)
+            return newMap
+          })
+        } catch (error) {
+          console.error('Failed to delete memorandum:', error)
+        }
+      }
+    } else {
+      // Save or update memorandum
+      try {
+        const memorandum = await tasksApi.createProcedureMemorandum(task.id, procedureNumber, text)
+        setMemorandums(prev => new Map(prev).set(procedureNumber, memorandum))
+      } catch (error) {
+        console.error('Failed to auto-save memorandum:', error)
+      }
+    }
+  }
+
+  // Hover box component
+  const HoverMemorandumBox = ({ procedureNumber }: { procedureNumber: number }) => {
+    const memorandum = memorandums.get(procedureNumber)
+    const [currentText, setCurrentText] = React.useState(memorandum?.memorandum_text || '')
+    const [hasChanged, setHasChanged] = React.useState(false)
+    const saveTimeoutRef = React.useRef<NodeJS.Timeout>()
+
+    // Initialize text when memorandum changes
+    React.useEffect(() => {
+      setCurrentText(memorandum?.memorandum_text || '')
+      setHasChanged(false)
+    }, [memorandum?.memorandum_text])
+
+    if (!hoveredProcedure || hoveredProcedure !== procedureNumber) return null
+
+    const handleTextChange = (newText: string) => {
+      setCurrentText(newText)
+      const existingText = memorandum?.memorandum_text || ''
+      setHasChanged(newText.trim() !== existingText)
+    }
+
+    const handleMouseLeave = () => {
+      // Auto-save before closing if text has changed
+      if (hasChanged) {
+        const textToSave = currentText.trim()
+        handleMemorandumAutoSave(procedureNumber, textToSave)
+      }
+      
+      // Clear any pending save timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+      
+      setHoveredProcedure(null)
+    }
+
+    return (
+      <div
+        className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-80"
+        style={{
+          left: hoverPosition.x,
+          top: hoverPosition.y,
+          transform: hoverPosition.y > window.innerHeight / 2 ? 'translateY(-100%)' : 'translateY(0%)'
+        }}
+        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => {
+          // Keep the box open when mouse enters it
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+          }
+        }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <StickyNote className="w-4 h-4 text-yellow-600" />
+            <h4 className="font-medium text-sm text-gray-900">步骤 {procedureNumber} 备忘录</h4>
+          </div>
+          {memorandum && (
+            <div className="flex items-center space-x-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => deleteMemorandum(procedureNumber)}
+                className="text-red-600 hover:text-red-700 p-1 h-6 w-6"
+                title="删除备忘录"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+        
+        {/* Always show textarea for immediate editing */}
+        <div className="space-y-3">
+          <textarea
+            value={currentText}
+            onChange={(e) => handleTextChange(e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded text-sm resize-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-yellow-50"
+            rows={4}
+            placeholder="在此记录备忘录..."
+            autoFocus
+          />
+          <div className="text-xs text-gray-500 text-center">
+            {memorandum ? (
+              <>更新于: {new Date(memorandum.updated_at).toLocaleString()}</>
+            ) : (
+              <>输入内容，移出鼠标自动保存</>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!isOpen) return null
@@ -271,7 +486,11 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
                 const isFolded = foldedProcedures.has(procedure.procedure_number)
                 
                 return (
-                  <Card key={procedure.procedure_number} className={`border-l-4 ${isCompleted ? 'border-l-green-500 bg-green-50' : 'border-l-blue-500'} transition-colors`}>
+                  <Card 
+                    key={procedure.procedure_number} 
+                    className={`border-l-4 ${isCompleted ? 'border-l-green-500 bg-green-50' : 'border-l-blue-500'} transition-colors cursor-pointer hover:shadow-md`}
+                    onMouseEnter={(e) => handleProcedureHover(procedure.procedure_number, e)}
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
@@ -282,9 +501,13 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
                             onChange={() => handleCompletionToggle(procedure.procedure_number, isCompleted)}
                             className="w-5 h-5 text-green-600 bg-white border-gray-300 rounded focus:ring-green-500 focus:ring-2"
                           />
-                          <CardTitle className={`text-lg font-medium ${isCompleted ? 'text-green-700 line-through' : 'text-blue-700'}`}>
-                            步骤 {procedure.procedure_number}
-                          </CardTitle>
+                          <div className="flex items-center space-x-2">
+                            <CardTitle 
+                              className={`text-lg font-medium px-2 py-1 rounded transition-colors relative ${isCompleted ? 'text-green-700 line-through' : 'text-blue-700'}`}
+                            >
+                              步骤 {procedure.procedure_number}
+                            </CardTitle>
+                          </div>
                           {isCompleted && (
                             <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">已完成</span>
                           )}
@@ -419,6 +642,11 @@ const TaskProcedurePopup: React.FC<TaskProcedurePopupProps> = ({
                   </Card>
                 )
               })}
+              
+              {/* Render hover boxes for all procedures */}
+              {procedures.map((procedure) => (
+                <HoverMemorandumBox key={`hover-${procedure.procedure_number}`} procedureNumber={procedure.procedure_number} />
+              ))}
             </div>
           )}
         </div>

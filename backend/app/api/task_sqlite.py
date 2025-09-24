@@ -4,11 +4,12 @@ from typing import List, Dict, Any
 from datetime import datetime, timezone
 
 from app.database.sqlite_connection import SessionLocal
-from app.database.sqlite_models import Task as TaskModel, User
+from app.database.sqlite_models import Task as TaskModel, User, ProcedureMemorandum
 from app.models.sqlite_models import (
     TaskCreate, TaskUpdate, TaskResponse, Task,
     TaskPreview, TaskPreviewResponse, TaskConfirmRequest,
-    UserResponse, ExecutionProcedureUpdate
+    UserResponse, ExecutionProcedureUpdate,
+    ProcedureMemorandumCreate, ProcedureMemorandumUpdate, ProcedureMemorandumResponse
 )
 from app.core.auth_sqlite import get_current_user
 from app.services.ai_service_sqlite import ai_service_sqlite
@@ -1235,5 +1236,174 @@ async def delete_execution_procedure(
         "deleted_procedure_number": procedure_number,
         "remaining_procedures": len(execution_procedures),
         "message": "Procedure deleted successfully"
+    }
+
+# Procedure Memorandum APIs
+@router.get("/{task_id}/procedures/{procedure_number}/memorandum", response_model=ProcedureMemorandumResponse)
+async def get_procedure_memorandum(
+    task_id: int,
+    procedure_number: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get memorandum for a specific procedure step"""
+    # Verify task ownership
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Find the memorandum
+    memorandum = db.query(ProcedureMemorandum).filter(
+        ProcedureMemorandum.user_id == current_user.id,
+        ProcedureMemorandum.task_id == task_id,
+        ProcedureMemorandum.procedure_number == procedure_number
+    ).first()
+    
+    if not memorandum:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memorandum not found for this procedure"
+        )
+    
+    return memorandum
+
+@router.post("/{task_id}/procedures/{procedure_number}/memorandum", response_model=ProcedureMemorandumResponse)
+async def create_procedure_memorandum(
+    task_id: int,
+    procedure_number: int,
+    request: ProcedureMemorandumCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create or update memorandum for a specific procedure step"""
+    # Verify task ownership
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Check if memorandum already exists
+    existing_memorandum = db.query(ProcedureMemorandum).filter(
+        ProcedureMemorandum.user_id == current_user.id,
+        ProcedureMemorandum.task_id == task_id,
+        ProcedureMemorandum.procedure_number == procedure_number
+    ).first()
+    
+    if existing_memorandum:
+        # Update existing memorandum
+        existing_memorandum.memorandum_text = request.memorandum_text
+        existing_memorandum.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing_memorandum)
+        return existing_memorandum
+    
+    # Create new memorandum
+    memorandum = ProcedureMemorandum(
+        user_id=current_user.id,
+        task_id=task_id,
+        procedure_number=procedure_number,
+        memorandum_text=request.memorandum_text
+    )
+    
+    db.add(memorandum)
+    db.commit()
+    db.refresh(memorandum)
+    
+    return memorandum
+
+@router.put("/{task_id}/procedures/{procedure_number}/memorandum", response_model=ProcedureMemorandumResponse)
+async def update_procedure_memorandum(
+    task_id: int,
+    procedure_number: int,
+    request: ProcedureMemorandumUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update memorandum for a specific procedure step"""
+    # Verify task ownership
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Find and update the memorandum
+    memorandum = db.query(ProcedureMemorandum).filter(
+        ProcedureMemorandum.user_id == current_user.id,
+        ProcedureMemorandum.task_id == task_id,
+        ProcedureMemorandum.procedure_number == procedure_number
+    ).first()
+    
+    if not memorandum:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memorandum not found for this procedure"
+        )
+    
+    memorandum.memorandum_text = request.memorandum_text
+    memorandum.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(memorandum)
+    
+    return memorandum
+
+@router.delete("/{task_id}/procedures/{procedure_number}/memorandum")
+async def delete_procedure_memorandum(
+    task_id: int,
+    procedure_number: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete memorandum for a specific procedure step"""
+    # Verify task ownership
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id,
+        TaskModel.user_id == current_user.id
+    ).first()
+    
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Find and delete the memorandum
+    memorandum = db.query(ProcedureMemorandum).filter(
+        ProcedureMemorandum.user_id == current_user.id,
+        ProcedureMemorandum.task_id == task_id,
+        ProcedureMemorandum.procedure_number == procedure_number
+    ).first()
+    
+    if not memorandum:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memorandum not found for this procedure"
+        )
+    
+    db.delete(memorandum)
+    db.commit()
+    
+    return {
+        "task_id": task_id,
+        "procedure_number": procedure_number,
+        "message": "Memorandum deleted successfully"
     }
 
