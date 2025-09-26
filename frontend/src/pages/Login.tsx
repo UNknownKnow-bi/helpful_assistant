@@ -16,31 +16,43 @@ export default function Login() {
   const setUser = useAuthStore((state) => state.setUser)
 
   const loginMutation = useMutation({
-    mutationFn: (data: LoginRequest) => authApi.login(data),
+    mutationFn: (data: LoginRequest) => {
+      console.log('🚀 Starting login mutation with:', data)
+      return authApi.login(data)
+    },
     onSuccess: async (response) => {
+      console.log('🎉 Login mutation success, response:', response)
       login(response.access_token)
       
       // Fetch user information after login
       try {
+        console.log('📱 Fetching user info after login...')
         const user = await authApi.getCurrentUser()
+        console.log('👤 User info fetched:', user)
         setUser(user)
+        console.log('🔄 Navigating to dashboard...')
         navigate('/dashboard')
       } catch (error) {
-        console.error('Failed to fetch user info:', error)
+        console.error('❌ Failed to fetch user info:', error)
         // Still navigate to dashboard even if user fetch fails
         navigate('/dashboard')
       }
     },
     onError: (error: any) => {
-      console.error('Login failed:', error.response?.data?.detail || error.message)
+      console.error('❌ Login mutation failed:', error)
+      console.error('Error response:', error.response?.data)
       alert('登录失败：用户名或密码错误')
     },
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('📝 Form submitted with:', { username, password: '*'.repeat(password.length) })
     if (username.trim() && password.trim()) {
+      console.log('✅ Form validation passed, triggering mutation')
       loginMutation.mutate({ username, password })
+    } else {
+      console.log('❌ Form validation failed - empty username or password')
     }
   }
 

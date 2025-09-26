@@ -74,16 +74,31 @@ async def login(user_login: UserLogin):
     database = get_database()
     
     try:
+        logger.info(f"Login attempt for username: {user_login.username}")
+        
         # Find user
         query = "SELECT id, username, password_hash FROM users WHERE username = :username"
         user_record = await database.fetch_one(query=query, values={"username": user_login.username})
         
-        if not user_record or not verify_password(user_login.password, user_record["password_hash"]):
+        if not user_record:
+            logger.warning(f"User not found: {user_login.username}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        
+        logger.info(f"User found: {user_record['username']} (ID: {user_record['id']})")
+        
+        if not verify_password(user_login.password, user_record["password_hash"]):
+            logger.warning(f"Invalid password for user: {user_login.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        logger.info(f"Password verification successful for: {user_login.username}")
         
         # Create access token
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
@@ -91,7 +106,7 @@ async def login(user_login: UserLogin):
             data={"sub": user_login.username}, expires_delta=access_token_expires
         )
         
-        logger.info(f"User {user_login.username} logged in successfully")
+        logger.info(f"User {user_login.username} logged in successfully - token generated")
         
         return {
             "access_token": access_token,

@@ -327,3 +327,4 @@ export interface ProcedureMemorandumUpdate {
   memorandum_text: string
 }
 
+

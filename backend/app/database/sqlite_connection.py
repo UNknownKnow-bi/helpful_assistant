@@ -63,3 +63,11 @@ def get_session():
         yield db
     finally:
         db.close()
+
+def get_db():
+    """Get database session (FastAPI dependency)"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

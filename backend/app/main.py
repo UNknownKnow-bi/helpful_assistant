@@ -87,6 +87,10 @@ app = FastAPI(
         {
             "name": "feishu-webhook",
             "description": "Feishu webhook notifications for task deadlines",
+        },
+        {
+            "name": "Version Control",
+            "description": "Filo app version management and platform build distribution",
         }
     ]
 )

@@ -210,3 +210,4 @@ class ProcedureMemorandum(Base):
     # Relationships
     user = relationship("User")
     task = relationship("Task")
+

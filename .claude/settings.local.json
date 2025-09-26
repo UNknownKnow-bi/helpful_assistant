@@ -10,7 +10,16 @@
       "Bash(git push:*)",
       "Bash(git add:*)",
       "Bash(rm:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install)",
+      "Bash(npm run:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(python3:*)",
+      "Bash(sqlite3:*)",
+      "Bash(pnpm dev:*)"
     ],
     "deny": []
   }

@@ -123,8 +123,15 @@ export const authApi = {
   },
   
   login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', data)
-    return response.data
+    console.log('🔐 Login request data:', data)
+    try {
+      const response = await api.post('/auth/login', data)
+      console.log('✅ Login response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('❌ Login error:', error)
+      throw error
+    }
   },
   
   getCurrentUser: async (): Promise<User> => {
@@ -544,3 +551,4 @@ export const feishuWebhookApi = {
     return response.data
   }
 }
+
